@@ -16,7 +16,9 @@ export async function createMessage(
   });
   if (!chat) notFound();
 
-  const maxPosition = Math.max(...chat.messages.map((m) => m.position));
+  const maxPosition = Math.max(
+    ...chat.messages.map((m: { position: number }) => m.position),
+  );
 
   const newMessage = await prisma.message.create({
     data: {
