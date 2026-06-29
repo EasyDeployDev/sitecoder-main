@@ -35,7 +35,8 @@ export default function Home() {
 
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(
-    MODELS.find((m) => !m.hidden)?.value || MODELS[0].value,
+    MODELS.find((m) => m.value === "moonshotai/kimi-k2.7-code")?.value ||
+      MODELS[0].value,
   );
   const [quality, setQuality] = useState("low");
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(

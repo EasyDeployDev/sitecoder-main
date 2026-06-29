@@ -10,6 +10,10 @@ export function resolveModel(model: string): string {
 
 export const MODELS = [
   {
+    label: "Kimi K2.7 Code",
+    value: "moonshotai/kimi-k2.7-code",
+  },
+  {
     label: "GLM 5",
     value: "zai-org/GLM-5",
   },
