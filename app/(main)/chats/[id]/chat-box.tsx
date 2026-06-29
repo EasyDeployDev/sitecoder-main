@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createMessage } from "../../actions";
 import { type Chat } from "./page";
-import { MODELS } from "@/lib/constants";
+import { DEFAULT_MODEL } from "@/lib/constants";
 
 export default function ChatBox({
   chat,
@@ -28,8 +28,7 @@ export default function ChatBox({
     .map((text) => (text === "" ? "a" : text))
     .join("\n");
 
-  const modelLabel =
-    MODELS.find((m) => m.value === chat.model)?.label || chat.model;
+  const modelLabel = "Kimi K2.7 Code";
 
   useEffect(() => {
     if (!textareaRef.current) return;
