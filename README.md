@@ -1,28 +1,22 @@
-<a href="https://www.llamacoder.io">
-  <img alt="Llama Coder" src="./public/og-image.png">
-  <h1 align="center">Llama Coder</h1>
-</a>
+<h1 align="center">Sitecoder</h1>
 
 <p align="center">
-  An open source Claude Artifacts – generate small apps with one prompt. Powered by Llama 3 on Together.ai.
+  An open source AI code generator – turn prompts into small apps.
 </p>
 
 ## Tech stack
 
-- [Llama 3.1 405B](https://ai.meta.com/blog/meta-llama-3-1/) from Meta for the LLM
-- [Together AI](https://togetherai.link/?utm_source=llamacoder&utm_medium=referral&utm_campaign=example-app) for LLM inference
+- [Kimi K2.7 Code](https://www.moonshot.cn/) via Kilo.ai gateway
 - [Sandpack](https://sandpack.codesandbox.io/) for the code sandbox
 - Next.js app router with Tailwind
-- Helicone for observability
 - Plausible for website analytics
 
 ## Cloning & running
 
-1. Clone the repo: `git clone https://github.com/Nutlope/llamacoder`
+1. Clone the repo: `git clone https://github.com/EasyDeployDev/sitecoder-main`
 2. Create a `.env` file and add your API keys:
-   - **[Together AI API key](https://dub.sh/together-ai/?utm_source=example-app\&utm_medium=llamacoder\&utm_campaign=llamacoder-app-signup)**: `TOGETHER_API_KEY=<your_together_ai_api_key>`
-   - **[CSB API key](https://codesandbox.io/signin)**: `CSB_API_KEY=<your_csb_api_key>`
-   - **Database URL**: Use [Neon](https://neon.tech) to set up your PostgreSQL database and add the Prisma connection string: `DATABASE_URL=<your_database_url>`
+   - **CSB API key**: `CSB_API_KEY=<your_csb_api_key>`
+   - **Database URL**: `DATABASE_URL=<your_database_url>`
 3. Run `npm install` and `npm run dev` to install dependencies and run locally
 
 ## Contributing
