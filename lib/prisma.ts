@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import { withAccelerate } from "@prisma/extension-accelerate";
+import { PrismaClient } from "@prisma/client/edge";
+import { withAccelerate } from "@prisma/extension-accelerate/edge";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool } from "@neondatabase/serverless";
 
@@ -11,9 +11,10 @@ function buildPrismaClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (databaseUrl?.startsWith("prisma+")) {
-    return new PrismaClient({ datasourceUrl: databaseUrl }).$extends(
-      withAccelerate(),
-    ) as unknown as PrismaClient;
+    const client = new PrismaClient({
+      datasourceUrl: databaseUrl,
+    }).$extends(withAccelerate());
+    return client as unknown as PrismaClient;
   }
 
   const neon = new Pool({ connectionString: databaseUrl });
