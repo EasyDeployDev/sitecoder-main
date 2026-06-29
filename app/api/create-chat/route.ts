@@ -5,8 +5,8 @@ import {
   screenshotToCodePrompt,
   softwareArchitectPrompt,
 } from "@/lib/prompts";
-import Together from "together-ai";
 import { resolveModel } from "@/lib/constants";
+import { createAIClient } from "@/lib/ai-config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,18 +24,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    let options: ConstructorParameters<typeof Together>[0] = {};
-    if (process.env.HELICONE_API_KEY) {
-      options.baseURL = "https://together.helicone.ai/v1";
-      options.defaultHeaders = {
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-        "Helicone-Property-appname": "LlamaCoder",
-        "Helicone-Session-Id": chat.id,
-        "Helicone-Session-Name": "LlamaCoder Chat",
-      };
-    }
-
-    const together = new Together(options);
+    const together = createAIClient(chat.id);
 
     async function fetchTitle() {
       const responseForChatTitle = await together.chat.completions.create({

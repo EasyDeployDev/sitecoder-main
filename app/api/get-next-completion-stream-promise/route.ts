@@ -2,8 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool } from "@neondatabase/serverless";
 import { z } from "zod";
-import Together from "together-ai";
 import { resolveModel } from "@/lib/constants";
+import { createAIClient } from "@/lib/ai-config";
 
 function optimizeMessagesForTokens(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
@@ -75,18 +75,7 @@ export async function POST(req: Request) {
     messages = [messages[0], messages[1], messages[2], ...messages.slice(-7)];
   }
 
-  let options: ConstructorParameters<typeof Together>[0] = {};
-  if (process.env.HELICONE_API_KEY) {
-    options.baseURL = "https://together.helicone.ai/v1";
-    options.defaultHeaders = {
-      "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-      "Helicone-Property-appname": "LlamaCoder",
-      "Helicone-Session-Id": message.chatId,
-      "Helicone-Session-Name": "LlamaCoder Chat",
-    };
-  }
-
-  const together = new Together(options);
+  const together = createAIClient(message.chatId);
 
   const res = await together.chat.completions.create({
     model: resolveModel(model),
