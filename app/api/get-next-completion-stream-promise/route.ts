@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { Pool } from "@neondatabase/serverless";
 import { z } from "zod";
 import { resolveModel } from "@/lib/constants";
 import { createAIClient } from "@/lib/ai-config";
+import { createPrismaClient } from "@/lib/prisma";
 
 function optimizeMessagesForTokens(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
@@ -37,9 +35,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const neon = new Pool({ connectionString: process.env.DATABASE_URL });
-  const adapter = new PrismaNeon(neon);
-  const prisma = new PrismaClient({ adapter });
+  const prisma = createPrismaClient();
 
   const parsed = requestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
