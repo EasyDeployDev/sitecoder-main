@@ -3,12 +3,17 @@ import { withAccelerate } from "@prisma/extension-accelerate";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool } from "@neondatabase/serverless";
 
-export function createPrismaClient(): any {
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (databaseUrl?.startsWith("prisma+")) {
-    const client = new PrismaClient({ datasourceUrl: databaseUrl });
-    return client.$extends(withAccelerate());
+    return new PrismaClient({ datasourceUrl: databaseUrl }).$extends(
+      withAccelerate(),
+    ) as unknown as PrismaClient;
   }
 
   const neon = new Pool({ connectionString: databaseUrl });
@@ -16,6 +21,12 @@ export function createPrismaClient(): any {
   return new PrismaClient({ adapter });
 }
 
-export function getPrisma(): any {
-  return createPrismaClient();
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+export function getPrisma(): PrismaClient {
+  return prisma;
 }
