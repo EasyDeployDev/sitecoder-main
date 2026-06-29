@@ -5,7 +5,7 @@ import {
   screenshotToCodePrompt,
   softwareArchitectPrompt,
 } from "@/lib/prompts";
-import { resolveModel } from "@/lib/constants";
+import { DEFAULT_MODEL, resolveModel } from "@/lib/constants";
 import { createAIClient } from "@/lib/ai-config";
 
 export async function POST(request: NextRequest) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     async function fetchTitle() {
       const responseForChatTitle = await together.chat.completions.create({
-        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        model: DEFAULT_MODEL,
         messages: [
           {
             role: "system",
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (screenshotUrl) {
       try {
         const screenshotResponse = await together.chat.completions.create({
-          model: "moonshotai/Kimi-K2.5",
+          model: DEFAULT_MODEL,
           reasoning: { enabled: false },
           temperature: 0.4,
           max_tokens: 1000,
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     let userMessage: string;
     if (quality === "high") {
       let initialRes = await together.chat.completions.create({
-        model: "Qwen/Qwen3-Coder-Next-FP8",
+        model: DEFAULT_MODEL,
         messages: [
           {
             role: "system",
