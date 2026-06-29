@@ -4,13 +4,13 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool } from "@neondatabase/serverless";
 import { cache } from "react";
 
-export function createPrismaClient() {
+export function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (databaseUrl?.startsWith("prisma+")) {
     return new PrismaClient({ datasourceUrl: databaseUrl }).$extends(
       withAccelerate(),
-    );
+    ) as unknown as PrismaClient;
   }
 
   const neon = new Pool({ connectionString: databaseUrl });
