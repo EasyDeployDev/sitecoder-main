@@ -2,9 +2,12 @@ import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool } from "@neondatabase/serverless";
-import { cache } from "react";
 
-export function createPrismaClient(): PrismaClient {
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+function buildPrismaClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (databaseUrl?.startsWith("prisma+")) {
@@ -18,4 +21,16 @@ export function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
-export const getPrisma = cache(() => createPrismaClient());
+export const prisma = globalForPrisma.prisma ?? buildPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+export function createPrismaClient(): PrismaClient {
+  return prisma;
+}
+
+export function getPrisma(): PrismaClient {
+  return prisma;
+}
