@@ -29,7 +29,31 @@ model Chat {
   messages          Message[]
   createdAt         DateTime  @default(now())
 
+  // --- CRM / Notion-style data layer ---
+  status     String   @default("Not started")
+  tags       String[] @default([])
+  archived   Boolean  @default(false)
+  icon       String?
+  properties Json     @default("{}")
+  order      Float    @default(0)
+  updatedAt  DateTime @updatedAt
+
   @@index([createdAt])
+  @@index([status])
+  @@index([archived])
+}
+
+// A Notion-style "database schema" entry: describes one custom column/property
+// that CRM views (table/board/gallery) can render for every Chat "record".
+model PropertyDef {
+  id        String   @id @default(nanoid(12))
+  name      String
+  type      String // text | number | select | multiSelect | date | checkbox | url
+  options   Json     @default("[]") // [{ id, label, color }] for select/multiSelect
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([order])
 }
 
 model Message {
