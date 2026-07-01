@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import StatusSelect from "@/components/crm/status-select";
+import StatusBadgeReadOnly from "@/components/crm/status-badge";
 import type { CrmRecord, PropertyDefRecord } from "@/lib/crm-types";
 import { setArchived } from "@/lib/crm";
 import { MessageSquare, Archive } from "lucide-react";
@@ -111,7 +112,11 @@ export default function TableView({
                 </Link>
               </TableCell>
               <TableCell>
-                <StatusSelect chatId={record.id} status={record.status} />
+                {record.viewerRole === "VIEWER" ? (
+                  <StatusBadgeReadOnly status={record.status} />
+                ) : (
+                  <StatusSelect chatId={record.id} status={record.status} />
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
@@ -140,15 +145,17 @@ export default function TableView({
                 {timeAgo(record.updatedAt)}
               </TableCell>
               <TableCell>
-                <button
-                  className="opacity-0 transition group-hover:opacity-100"
-                  title="Archive"
-                  onClick={() =>
-                    startTransition(() => setArchived(record.id, true))
-                  }
-                >
-                  <Archive className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                </button>
+                {record.viewerRole !== "VIEWER" && (
+                  <button
+                    className="opacity-0 transition group-hover:opacity-100"
+                    title="Archive"
+                    onClick={() =>
+                      startTransition(() => setArchived(record.id, true))
+                    }
+                  >
+                    <Archive className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </button>
+                )}
               </TableCell>
             </TableRow>
           ))}

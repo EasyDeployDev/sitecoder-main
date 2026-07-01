@@ -8,9 +8,12 @@ import {
 import { DEFAULT_MODEL, resolveModel } from "@/lib/constants";
 import { createAIClient } from "@/lib/ai-config";
 import { invalidateMessageCache } from "@/lib/cached-db";
+import { requireUser } from "@/lib/auth";
+import { UnauthorizedError } from "@/lib/rbac";
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser();
     const { prompt, model, quality, screenshotUrl } = await request.json();
     const resolvedModel = resolveModel(model);
 
@@ -22,6 +25,7 @@ export async function POST(request: NextRequest) {
         prompt,
         title: "",
         shadcn: true,
+        ownerId: user.id,
       },
     });
 
@@ -146,6 +150,9 @@ export async function POST(request: NextRequest) {
       lastMessageId: lastMessage.id,
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     console.error("Error creating chat:", error);
     return NextResponse.json(
       { error: "Failed to create chat" },

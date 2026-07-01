@@ -17,9 +17,11 @@ type ViewKind = "table" | "board" | "gallery";
 export default function CrmDashboard({
   records,
   propertyDefs,
+  canManageSchema,
 }: {
   records: CrmRecord[];
   propertyDefs: PropertyDefRecord[];
+  canManageSchema: boolean;
 }) {
   const [view, setView] = useState<ViewKind>("table");
   const [query, setQuery] = useState("");
@@ -45,7 +47,7 @@ export default function CrmDashboard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <AddPropertyDialog />
+          {canManageSchema && <AddPropertyDialog />}
           <Button asChild size="sm">
             <Link href="/">
               <Plus className="h-4 w-4" />

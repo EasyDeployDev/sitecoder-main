@@ -4,7 +4,11 @@ import { createAIClient } from "@/lib/ai-config";
 import {
   getCachedMessageForGeneration,
   getCachedMessagesForGeneration,
+  getCachedChatMembersFor,
 } from "@/lib/cached-db";
+import { getPrisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { canViewChat } from "@/lib/rbac";
 
 function optimizeMessagesForTokens(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
@@ -38,6 +42,11 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const parsed = requestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return new Response("Invalid request", { status: 400 });
@@ -48,6 +57,23 @@ export async function POST(req: Request) {
 
   if (!message) {
     return new Response(null, { status: 404 });
+  }
+
+  const prisma = getPrisma();
+  const chat = await prisma.chat.findUnique({
+    where: { id: message.chatId },
+    select: { ownerId: true },
+  });
+  if (!chat) {
+    return new Response(null, { status: 404 });
+  }
+  const memberMap = await getCachedChatMembersFor([message.chatId], user.id);
+  const allowed = canViewChat(user, {
+    ownerId: chat.ownerId,
+    memberRole: memberMap[message.chatId] ?? null,
+  });
+  if (!allowed) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   const messagesRes = await getCachedMessagesForGeneration(

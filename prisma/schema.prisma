@@ -18,6 +18,68 @@ model GeneratedApp {
   @@index([id])
 }
 
+// --- Auth / RBAC data layer ---
+//
+// Global role gates coarse-grained permissions (who can manage the
+// workspace, property schema, and members). Per-chat access is layered on
+// top via ownerId + ChatMember, so a MEMBER can still be scoped to only the
+// records they own or have been explicitly shared.
+enum GlobalRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum ChatRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id           String     @id @default(nanoid(16))
+  email        String     @unique
+  passwordHash String
+  name         String?
+  role         GlobalRole @default(MEMBER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  sessions     Session[]
+  ownedChats   Chat[]        @relation("ChatOwner")
+  chatMembers  ChatMember[]
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(nanoid(32))
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Explicit per-record grant, layered on top of Chat.ownerId. Lets an owner
+// or admin share a record with another user at EDITOR or VIEWER scope.
+model ChatMember {
+  id        String   @id @default(nanoid(16))
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      ChatRole @default(VIEWER)
+  createdAt DateTime @default(now())
+
+  @@unique([chatId, userId])
+  @@index([userId])
+  @@index([chatId])
+}
+
 model Chat {
   id                String    @id @default(nanoid(16))
   model             String
@@ -38,9 +100,15 @@ model Chat {
   order      Float    @default(0)
   updatedAt  DateTime @updatedAt
 
+  // --- Auth / RBAC ---
+  ownerId String?
+  owner   User?        @relation("ChatOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  members ChatMember[]
+
   @@index([createdAt])
   @@index([status])
   @@index([archived])
+  @@index([ownerId])
 }
 
 // A Notion-style "database schema" entry: describes one custom column/property

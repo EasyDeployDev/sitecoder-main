@@ -43,4 +43,8 @@ export type CrmRecord = {
   messageCount: number;
   createdAt: Date;
   updatedAt: Date;
+  ownerId: string | null;
+  // Effective role the current viewer holds on this record, computed at
+  // read time by lib/crm.ts (not cached, since it depends on the viewer).
+  viewerRole: "OWNER" | "EDITOR" | "VIEWER";
 };

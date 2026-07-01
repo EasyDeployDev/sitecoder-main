@@ -33,7 +33,7 @@ function toPropertyDefRecord(row: {
   };
 }
 
-function toCrmRecord(row: {
+type ChatRow = {
   id: string;
   title: string;
   prompt: string;
@@ -45,8 +45,15 @@ function toCrmRecord(row: {
   order: number;
   createdAt: Date;
   updatedAt: Date;
+  ownerId: string | null;
   _count?: { messages: number };
-}): CrmRecord {
+};
+
+// NOTE: viewerRole is intentionally left off this raw cache row — it's
+// computed per-viewer in lib/crm.ts (via lib/rbac.ts) and must never be
+// cached, since the same underlying row can look different to different
+// users.
+function toCachedChatRow(row: ChatRow) {
   return {
     id: row.id,
     title: row.title || row.prompt.slice(0, 60) || "Untitled",
@@ -60,12 +67,15 @@ function toCrmRecord(row: {
     messageCount: row._count?.messages ?? 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    ownerId: row.ownerId,
   };
 }
 
+export type CachedChatRow = ReturnType<typeof toCachedChatRow>;
+
 export async function getCachedWorkspaceRecords(
   opts: { includeArchived?: boolean } = {},
-): Promise<CrmRecord[]> {
+): Promise<CachedChatRow[]> {
   const includeArchived = Boolean(opts.includeArchived);
 
   return kvRemember(
@@ -81,7 +91,37 @@ export async function getCachedWorkspaceRecords(
         orderBy: [{ order: "asc" }, { createdAt: "desc" }],
         include: { _count: { select: { messages: true } } },
       });
-      return rows.map(toCrmRecord);
+      return rows.map(toCachedChatRow);
+    },
+  );
+}
+
+// Membership rows for a set of chats, used to compute each viewer's
+// effective per-record role on top of the shared workspace cache. Cached
+// separately (and briefly) since membership changes are rare but must
+// never be baked into the shared CrmRecord cache above.
+export async function getCachedChatMembersFor(
+  chatIds: string[],
+  userId: string,
+): Promise<Record<string, "OWNER" | "EDITOR" | "VIEWER">> {
+  if (chatIds.length === 0) return {};
+  return kvRemember(
+    `db:chat-members:${userId}:${chatIds.slice().sort().join(",")}`,
+    {
+      ttlMs: 30 * SECOND,
+      tags: [CACHE_TAGS.workspace],
+    },
+    async () => {
+      const prisma = getPrisma();
+      const rows = await prisma.chatMember.findMany({
+        where: { chatId: { in: chatIds }, userId },
+        select: { chatId: true, role: true },
+      });
+      const map: Record<string, "OWNER" | "EDITOR" | "VIEWER"> = {};
+      for (const row of rows) {
+        map[row.chatId] = row.role as "OWNER" | "EDITOR" | "VIEWER";
+      }
+      return map;
     },
   );
 }

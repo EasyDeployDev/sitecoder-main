@@ -1,8 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import PageClient from "./page.client";
 import { Metadata } from "next";
-import { getCachedChatPage } from "@/lib/cached-db";
+import { getCachedChatPage, getCachedChatMembersFor } from "@/lib/cached-db";
+import { getCurrentUser } from "@/lib/auth";
+import { canViewChat } from "@/lib/rbac";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -41,6 +43,16 @@ export default async function Page({
   const chat = await getChatById(id);
 
   if (!chat) notFound();
+
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?redirectTo=/chats/${id}`);
+
+  const memberMap = await getCachedChatMembersFor([id], user.id);
+  const allowed = canViewChat(user, {
+    ownerId: chat.ownerId,
+    memberRole: memberMap[id] ?? null,
+  });
+  if (!allowed) notFound();
 
   return <PageClient chat={chat} />;
 }

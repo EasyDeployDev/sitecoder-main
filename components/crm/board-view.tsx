@@ -51,12 +51,17 @@ export default function BoardView({ records }: { records: CrmRecord[] }) {
               {colItems.map((record) => (
                 <Card
                   key={record.id}
-                  draggable
+                  draggable={record.viewerRole !== "VIEWER"}
                   onDragStart={(e) => {
+                    if (record.viewerRole === "VIEWER") return;
                     e.dataTransfer.setData("text/plain", record.id);
                     setDragId(record.id);
                   }}
-                  className="cursor-grab bg-slate-900/80 p-3 transition hover:border-slate-600 active:cursor-grabbing"
+                  className={
+                    record.viewerRole === "VIEWER"
+                      ? "bg-slate-900/80 p-3 transition"
+                      : "cursor-grab bg-slate-900/80 p-3 transition hover:border-slate-600 active:cursor-grabbing"
+                  }
                 >
                   <Link
                     href={`/chats/${record.id}`}
