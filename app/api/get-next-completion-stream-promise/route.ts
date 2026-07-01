@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { resolveModel } from "@/lib/constants";
 import { createAIClient } from "@/lib/ai-config";
-import { createPrismaClient } from "@/lib/prisma";
+import {
+  getCachedMessageForGeneration,
+  getCachedMessagesForGeneration,
+} from "@/lib/cached-db";
 
 function optimizeMessagesForTokens(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
@@ -35,26 +38,22 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const prisma = createPrismaClient();
-
   const parsed = requestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return new Response("Invalid request", { status: 400 });
   }
   const { messageId, model } = parsed.data;
 
-  const message = await prisma.message.findUnique({
-    where: { id: messageId },
-  });
+  const message = await getCachedMessageForGeneration(messageId);
 
   if (!message) {
     return new Response(null, { status: 404 });
   }
 
-  const messagesRes = await prisma.message.findMany({
-    where: { chatId: message.chatId, position: { lte: message.position } },
-    orderBy: { position: "asc" },
-  });
+  const messagesRes = await getCachedMessagesForGeneration(
+    message.chatId,
+    message.position,
+  );
 
   let messages = z
     .array(

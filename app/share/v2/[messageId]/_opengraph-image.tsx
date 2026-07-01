@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import { getPrisma } from "@/lib/prisma";
+import { getCachedMessageWithChat } from "@/lib/cached-db";
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -17,15 +17,7 @@ export default async function Image({
   params: { messageId: string };
 }) {
   let messageId = params.messageId;
-  const prisma = getPrisma();
-  let message = await prisma.message.findUnique({
-    where: {
-      id: messageId,
-    },
-    include: {
-      chat: true,
-    },
-  });
+  let message = await getCachedMessageWithChat(messageId);
 
   const backgroundData = await readFile(
     join(process.cwd(), "./public/dynamic-og.png"),

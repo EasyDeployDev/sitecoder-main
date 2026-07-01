@@ -1,8 +1,8 @@
-import { getPrisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import PageClient from "./page.client";
 import { Metadata } from "next";
+import { getCachedChatPage } from "@/lib/cached-db";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -46,66 +46,7 @@ export default async function Page({
 }
 
 const getChatById = cache(async (id: string) => {
-  const prisma = getPrisma();
-  const chat = await prisma.chat.findFirst({
-    where: { id },
-  });
-
-  if (!chat) return null;
-
-  // Get total message count
-  const totalMessages = await prisma.message.count({
-    where: { chatId: id },
-  });
-
-  // Always fetch system message (position 0) and initial user message (position 1)
-  const initialMessages = await prisma.message.findMany({
-    where: {
-      chatId: id,
-      position: { in: [0, 1] },
-    },
-    orderBy: { position: "asc" },
-  });
-
-  // Fetch the last 100 messages from position 2 onwards
-  const recentMessages = await prisma.message.findMany({
-    where: {
-      chatId: id,
-      position: { gte: 2 },
-    },
-    orderBy: { position: "desc" },
-    take: 100,
-  });
-
-  // Combine and sort all messages
-  const allMessages = [...initialMessages, ...recentMessages].sort(
-    (a, b) => a.position - b.position,
-  );
-
-  // Calculate assistant messages count before the loaded range for correct versioning
-  const assistantMessagesInLoaded = allMessages.filter(
-    (m) => m.role === "assistant",
-  );
-  let assistantMessagesCountBefore = 0;
-  if (assistantMessagesInLoaded.length > 0) {
-    const minPosition = Math.min(
-      ...assistantMessagesInLoaded.map((m) => m.position),
-    );
-    assistantMessagesCountBefore = await prisma.message.count({
-      where: {
-        chatId: id,
-        role: "assistant",
-        position: { lt: minPosition },
-      },
-    });
-  }
-
-  return {
-    ...chat,
-    messages: allMessages,
-    totalMessages,
-    assistantMessagesCountBefore,
-  };
+  return getCachedChatPage(id);
 });
 
 export type Chat = NonNullable<Awaited<ReturnType<typeof getChatById>>>;

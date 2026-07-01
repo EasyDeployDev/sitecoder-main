@@ -1,6 +1,7 @@
 "use server";
 
 import { getPrisma } from "@/lib/prisma";
+import { invalidateMessageCache } from "@/lib/cached-db";
 import { notFound } from "next/navigation";
 
 export async function createMessage(
@@ -28,5 +29,6 @@ export async function createMessage(
     },
   });
 
+  invalidateMessageCache(chatId, newMessage.id);
   return newMessage;
 }

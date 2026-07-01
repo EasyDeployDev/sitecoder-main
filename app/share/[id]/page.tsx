@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
 import CodeRunner from "@/components/code-runner";
-import { getPrisma } from "@/lib/prisma";
+import { getCachedGeneratedApp } from "@/lib/cached-db";
 
 /*
   This is the Share page for v1 apps, before the chat interface was added.
@@ -63,10 +63,5 @@ export default async function Page({
 }
 
 const getGeneratedAppByID = cache(async (id: string) => {
-  const prisma = getPrisma();
-  return prisma.generatedApp.findUnique({
-    where: {
-      id,
-    },
-  });
+  return getCachedGeneratedApp(id);
 });

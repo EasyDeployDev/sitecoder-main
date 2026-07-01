@@ -2,6 +2,12 @@
 
 import { getPrisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import {
+  getCachedPropertyDefs,
+  getCachedWorkspaceRecords,
+  invalidateChatCache,
+  invalidatePropertyDefCache,
+} from "@/lib/cached-db";
 import type {
   CrmRecord,
   PropertyDefRecord,
@@ -50,54 +56,14 @@ function toPropertyDefRecord(row: {
   };
 }
 
-function toCrmRecord(row: {
-  id: string;
-  title: string;
-  prompt: string;
-  status: string;
-  tags: string[];
-  archived: boolean;
-  icon: string | null;
-  properties: unknown;
-  order: number;
-  createdAt: Date;
-  updatedAt: Date;
-  _count?: { messages: number };
-}): CrmRecord {
-  return {
-    id: row.id,
-    title: row.title || row.prompt.slice(0, 60) || "Untitled",
-    prompt: row.prompt,
-    status: row.status,
-    tags: row.tags ?? [],
-    archived: row.archived,
-    icon: row.icon,
-    properties: (row.properties as Record<string, unknown>) ?? {},
-    order: row.order,
-    messageCount: row._count?.messages ?? 0,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
-
 export async function listRecords(
   opts: { includeArchived?: boolean } = {},
 ): Promise<CrmRecord[]> {
-  const prisma = getPrisma();
-  const rows = await prisma.chat.findMany({
-    where: opts.includeArchived ? {} : { archived: false },
-    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
-    include: { _count: { select: { messages: true } } },
-  });
-  return rows.map(toCrmRecord);
+  return getCachedWorkspaceRecords(opts);
 }
 
 export async function listPropertyDefs(): Promise<PropertyDefRecord[]> {
-  const prisma = getPrisma();
-  const rows = await prisma.propertyDef.findMany({
-    orderBy: { order: "asc" },
-  });
-  return rows.map(toPropertyDefRecord);
+  return getCachedPropertyDefs();
 }
 
 export async function createPropertyDef(input: {
@@ -122,6 +88,7 @@ export async function createPropertyDef(input: {
     },
   });
 
+  invalidatePropertyDefCache();
   revalidatePath("/chats");
   return toPropertyDefRecord(row);
 }
@@ -129,6 +96,7 @@ export async function createPropertyDef(input: {
 export async function deletePropertyDef(id: string): Promise<void> {
   const prisma = getPrisma();
   await prisma.propertyDef.delete({ where: { id } });
+  invalidatePropertyDefCache();
   revalidatePath("/chats");
 }
 
@@ -138,6 +106,7 @@ export async function updateRecordStatus(
 ): Promise<void> {
   const prisma = getPrisma();
   await prisma.chat.update({ where: { id }, data: { status } });
+  invalidateChatCache(id);
   revalidatePath("/chats");
 }
 
@@ -147,6 +116,7 @@ export async function updateRecordOrder(
 ): Promise<void> {
   const prisma = getPrisma();
   await prisma.chat.update({ where: { id }, data: { order } });
+  invalidateChatCache(id);
   revalidatePath("/chats");
 }
 
@@ -156,6 +126,7 @@ export async function updateRecordTags(
 ): Promise<void> {
   const prisma = getPrisma();
   await prisma.chat.update({ where: { id }, data: { tags } });
+  invalidateChatCache(id);
   revalidatePath("/chats");
 }
 
@@ -165,6 +136,7 @@ export async function updateRecordTitle(
 ): Promise<void> {
   const prisma = getPrisma();
   await prisma.chat.update({ where: { id }, data: { title } });
+  invalidateChatCache(id);
   revalidatePath("/chats");
 }
 
@@ -184,6 +156,7 @@ export async function updateRecordProperty(
     where: { id },
     data: { properties: next as unknown as object },
   });
+  invalidateChatCache(id);
   revalidatePath("/chats");
 }
 
@@ -193,11 +166,13 @@ export async function setArchived(
 ): Promise<void> {
   const prisma = getPrisma();
   await prisma.chat.update({ where: { id }, data: { archived } });
+  invalidateChatCache(id);
   revalidatePath("/chats");
 }
 
 export async function deleteRecord(id: string): Promise<void> {
   const prisma = getPrisma();
   await prisma.chat.delete({ where: { id } });
+  invalidateChatCache(id);
   revalidatePath("/chats");
 }

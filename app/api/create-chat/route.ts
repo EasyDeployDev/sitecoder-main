@@ -7,6 +7,7 @@ import {
 } from "@/lib/prompts";
 import { DEFAULT_MODEL, resolveModel } from "@/lib/constants";
 import { createAIClient } from "@/lib/ai-config";
+import { invalidateMessageCache } from "@/lib/cached-db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -137,6 +138,8 @@ export async function POST(request: NextRequest) {
       .sort((a, b) => a.position - b.position)
       .at(-1);
     if (!lastMessage) throw new Error("No new message");
+
+    invalidateMessageCache(chat.id, lastMessage.id);
 
     return NextResponse.json({
       chatId: chat.id,
