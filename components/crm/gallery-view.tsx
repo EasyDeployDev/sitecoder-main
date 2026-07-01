@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import StatusBadge from "@/components/crm/status-badge";
 import type { CrmRecord } from "@/lib/crm-types";
-import { ArrowUpRight, MessageSquare, Sparkles } from "lucide-react";
+import { ArrowUpRight, Database, MessageSquare, Sparkles } from "lucide-react";
 
 function timeAgo(date: Date) {
   const diffMs = Date.now() - new Date(date).getTime();
@@ -59,9 +59,20 @@ export default function GalleryView({ records }: { records: CrmRecord[] }) {
             </CardContent>
             <div className="flex items-center justify-between border-t border-slate-800 px-6 py-2.5 text-[11px] text-slate-500">
               <span>{timeAgo(record.updatedAt)}</span>
-              <span className="inline-flex items-center gap-1 font-medium text-slate-400 opacity-0 transition group-hover:opacity-100">
-                Open app
-                <ArrowUpRight className="h-3 w-3" />
+              <span className="flex items-center gap-3 opacity-0 transition group-hover:opacity-100">
+                <Link
+                  href={`/chats/${record.id}/data`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 font-medium text-slate-400 hover:text-blue-400"
+                  title="Open data record"
+                >
+                  <Database className="h-3 w-3" />
+                  Data
+                </Link>
+                <span className="inline-flex items-center gap-1 font-medium text-slate-400">
+                  Open app
+                  <ArrowUpRight className="h-3 w-3" />
+                </span>
               </span>
             </div>
           </Card>

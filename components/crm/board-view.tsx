@@ -8,7 +8,7 @@ import StatusBadge, { statusColor } from "@/components/crm/status-badge";
 import { updateRecordStatus } from "@/lib/crm";
 import { STATUS_OPTIONS } from "@/lib/crm-types";
 import type { CrmRecord } from "@/lib/crm-types";
-import { MessageSquare } from "lucide-react";
+import { Database, MessageSquare } from "lucide-react";
 
 export default function BoardView({ records }: { records: CrmRecord[] }) {
   const [items, setItems] = useState(records);
@@ -82,10 +82,19 @@ export default function BoardView({ records }: { records: CrmRecord[] }) {
                       <MessageSquare className="h-3 w-3" />
                       {record.messageCount}
                     </span>
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: statusColor(record.status) }}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/chats/${record.id}/data`}
+                        title="Open data record"
+                        className="hover:text-blue-400"
+                      >
+                        <Database className="h-3 w-3" />
+                      </Link>
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: statusColor(record.status) }}
+                      />
+                    </div>
                   </div>
                 </Card>
               ))}

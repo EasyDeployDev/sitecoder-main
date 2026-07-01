@@ -34,12 +34,20 @@ const HeaderChat = memo(({ chat }: { chat: Chat }) => (
         </span>
       </div>
     </div>
-    <Link
-      href="/chats"
-      className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-    >
-      My apps
-    </Link>
+    <div className="flex items-center gap-1">
+      <Link
+        href={`/chats/${chat.id}/data`}
+        className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+      >
+        Data
+      </Link>
+      <Link
+        href="/chats"
+        className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+      >
+        My apps
+      </Link>
+    </div>
   </div>
 ));
 

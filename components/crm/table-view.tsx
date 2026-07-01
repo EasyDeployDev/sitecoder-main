@@ -16,7 +16,7 @@ import StatusSelect from "@/components/crm/status-select";
 import StatusBadgeReadOnly from "@/components/crm/status-badge";
 import type { CrmRecord, PropertyDefRecord } from "@/lib/crm-types";
 import { setArchived } from "@/lib/crm";
-import { MessageSquare, Archive } from "lucide-react";
+import { MessageSquare, Archive, Database } from "lucide-react";
 
 function timeAgo(date: Date) {
   const diffMs = Date.now() - new Date(date).getTime();
@@ -145,17 +145,21 @@ export default function TableView({
                 {timeAgo(record.updatedAt)}
               </TableCell>
               <TableCell>
-                {record.viewerRole !== "VIEWER" && (
-                  <button
-                    className="opacity-0 transition group-hover:opacity-100"
-                    title="Archive"
-                    onClick={() =>
-                      startTransition(() => setArchived(record.id, true))
-                    }
-                  >
-                    <Archive className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </button>
-                )}
+                <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
+                  <Link href={`/chats/${record.id}/data`} title="Open data record">
+                    <Database className="h-4 w-4 text-muted-foreground hover:text-blue-400" />
+                  </Link>
+                  {record.viewerRole !== "VIEWER" && (
+                    <button
+                      title="Archive"
+                      onClick={() =>
+                        startTransition(() => setArchived(record.id, true))
+                      }
+                    >
+                      <Archive className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}

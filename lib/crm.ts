@@ -129,6 +129,50 @@ export async function listPropertyDefs(): Promise<PropertyDefRecord[]> {
   return getCachedPropertyDefs();
 }
 
+// Single-record read for the per-chat data layer page
+// (app/(main)/chats/[id]/data). Not cached like listRecords/getCachedChatPage
+// since it's a low-traffic detail view — always reflects the latest write.
+export async function getRecord(id: string): Promise<CrmRecord | null> {
+  const user = await requireUser();
+  const prisma = getPrisma();
+  const chat = await prisma.chat.findUnique({
+    where: { id },
+    include: { _count: { select: { messages: true } } },
+  });
+  if (!chat) return null;
+
+  const seeAll = canViewAllRecords(user);
+  const membership = seeAll
+    ? null
+    : await prisma.chatMember.findUnique({
+        where: { chatId_userId: { chatId: id, userId: user.id } },
+        select: { role: true },
+      });
+
+  const role = effectiveChatRole(user, {
+    ownerId: chat.ownerId,
+    memberRole: membership?.role ?? null,
+  });
+  if (!role) return null;
+
+  return {
+    id: chat.id,
+    title: chat.title || chat.prompt.slice(0, 60) || "Untitled",
+    prompt: chat.prompt,
+    status: chat.status,
+    tags: chat.tags ?? [],
+    archived: chat.archived,
+    icon: chat.icon,
+    properties: (chat.properties as Record<string, unknown>) ?? {},
+    order: chat.order,
+    messageCount: chat._count.messages,
+    createdAt: chat.createdAt,
+    updatedAt: chat.updatedAt,
+    ownerId: chat.ownerId,
+    viewerRole: role,
+  };
+}
+
 export async function createPropertyDef(input: {
   name: string;
   type: PropertyType;
