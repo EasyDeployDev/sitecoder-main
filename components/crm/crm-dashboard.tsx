@@ -23,7 +23,7 @@ export default function CrmDashboard({
   propertyDefs: PropertyDefRecord[];
   canManageSchema: boolean;
 }) {
-  const [view, setView] = useState<ViewKind>("table");
+  const [view, setView] = useState<ViewKind>("gallery");
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -41,9 +41,12 @@ export default function CrmDashboard({
     <div className="flex flex-1 flex-col gap-4 px-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Workspace</h1>
+          <h1 className="text-xl font-semibold text-slate-100">
+            Your micro apps
+          </h1>
           <p className="text-sm text-muted-foreground">
-            {records.length} {records.length === 1 ? "record" : "records"}
+            {records.length} {records.length === 1 ? "app" : "apps"} in this
+            workspace
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -51,7 +54,7 @@ export default function CrmDashboard({
           <Button asChild size="sm">
             <Link href="/">
               <Plus className="h-4 w-4" />
-              New chat
+              New app
             </Link>
           </Button>
         </div>
@@ -60,6 +63,10 @@ export default function CrmDashboard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={view} onValueChange={(v) => setView(v as ViewKind)}>
           <TabsList>
+            <TabsTrigger value="gallery">
+              <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
+              Apps
+            </TabsTrigger>
             <TabsTrigger value="table">
               <List className="mr-1.5 h-3.5 w-3.5" />
               Table
@@ -67,10 +74,6 @@ export default function CrmDashboard({
             <TabsTrigger value="board">
               <Rows3 className="mr-1.5 h-3.5 w-3.5" />
               Board
-            </TabsTrigger>
-            <TabsTrigger value="gallery">
-              <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
-              Gallery
             </TabsTrigger>
           </TabsList>
         </Tabs>

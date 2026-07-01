@@ -15,7 +15,7 @@ export default async function Header() {
           href="/chats"
           className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-slate-100"
         >
-          Workspace
+          My apps
         </Link>
         {user ? (
           <form action={signOutAction}>

@@ -38,7 +38,7 @@ const HeaderChat = memo(({ chat }: { chat: Chat }) => (
       href="/chats"
       className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
     >
-      Workspace
+      My apps
     </Link>
   </div>
 ));

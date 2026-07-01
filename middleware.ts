@@ -29,8 +29,20 @@ function isPublicPath(pathname: string): boolean {
 // cookie so unauthenticated users are redirected before any page renders.
 // The real session validation (expiry, user lookup, RBAC) happens
 // server-side in lib/auth.ts + lib/rbac.ts for every data access.
+// APP_ROLE lets the exact same codebase/image be deployed as two Koyeb
+// services under one app: the default "main" service (landing + chat
+// generation) handles route "/", while a second "workspace" service
+// handles route "/chats" as its own sub app (independent container,
+// scaling, and deploys, sharing the same database). See koyeb service
+// "sitecoder-workspace".
+const APP_ROLE = process.env.APP_ROLE === "workspace" ? "workspace" : "main";
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (APP_ROLE === "workspace" && pathname === "/") {
+    return NextResponse.redirect(new URL("/chats", request.url));
+  }
 
   if (isPublicPath(pathname)) return NextResponse.next();
 
