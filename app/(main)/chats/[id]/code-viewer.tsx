@@ -61,7 +61,6 @@ export default function CodeViewer({
 }) {
   const streamAllFiles = extractAllCodeBlocks(streamText);
 
-  // Extract the latest (possibly partial) code fence from the stream text
   function extractLatestStreamBlock(
     input: string,
   ): { code: string; language: string; path: string } | undefined {
@@ -78,11 +77,9 @@ export default function CodeViewer({
     for (const line of lines) {
       const match = line.match(codeFenceRegex);
       if (match && !openTag) {
-        // Opening a fence
         openTag = match[1] || "";
         codeBuffer = [];
       } else if (match && openTag) {
-        // Closing the fence
         const { language, path } = parseTag(openTag);
         latestComplete = { code: codeBuffer.join("\n"), language, path };
         openTag = null;
@@ -92,7 +89,6 @@ export default function CodeViewer({
       }
     }
 
-    // If an open fence remains at end, return it as partial; else return latest complete
     if (openTag) {
       const { language, path } = parseTag(openTag);
       return { code: codeBuffer.join("\n"), language, path };
@@ -118,7 +114,6 @@ export default function CodeViewer({
 
   const latestStreamBlock = extractLatestStreamBlock(streamText);
 
-  // Merge stream files with latest partial if necessary
   let mergedStreamFiles = [...streamAllFiles];
   if (latestStreamBlock) {
     const existingIdx = mergedStreamFiles.findIndex(
@@ -141,7 +136,6 @@ export default function CodeViewer({
     }
   }
 
-  // Utility to merge base files with overlay files (overlay wins on conflicts)
   function mergeFiles(
     base: Array<{
       code: string;
@@ -165,20 +159,14 @@ export default function CodeViewer({
     return Array.from(map.values());
   }
 
-  // Helper to get files from a message (JSON field or extract from content)
   const getFilesFromMessage = (msg: Message) => {
-    // extractAllCodeBlocks is needed for legacy 1 file apps
     return (msg.files as any[]) || extractAllCodeBlocks(msg.content);
   };
 
-  // Since each message now contains cumulative files, simplify the logic
   const assistantMessages = chat.messages.filter(
     (m) => m.role === "assistant" && getFilesFromMessage(m).length > 0,
   );
 
-  // Effective files:
-  // - While streaming: use the last message's cumulative files overlaid with streamed partials
-  // - When displaying a message: use that message's cumulative files directly
   const files = streamText
     ? (() => {
         const lastMessage = assistantMessages.at(-1);
@@ -189,7 +177,6 @@ export default function CodeViewer({
       ? getFilesFromMessage(message)
       : [];
 
-  // Prefer the latest streamed file while streaming; otherwise, App.tsx or first tsx
   const mainFile =
     latestStreamBlock && streamText
       ? files.find((f) => f.path === latestStreamBlock.path) || files.at(-1)
@@ -200,14 +187,12 @@ export default function CodeViewer({
   const language = mainFile ? mainFile.language : "";
   const rawFilename = mainFile ? mainFile.path : "";
 
-  // Generate app title for display
   const generateAppTitle = (fileList: typeof files) => {
     if (fileList.length === 1) {
       return generateIntelligentFilename(fileList[0].code, fileList[0].language)
         .name;
     }
 
-    // For multiple files, look for App.tsx or main component
     const appFile = fileList.find(
       (f) => f.path === "App.tsx" || f.path.endsWith("App.tsx"),
     );
@@ -220,14 +205,10 @@ export default function CodeViewer({
       }
     }
 
-    // Fallback: use the first file's name
     const firstFile = fileList[0];
     if (firstFile) {
       const name =
-        firstFile.path
-          .split("/")
-          .pop()
-          ?.replace(/\.\w+$/, "") || "App";
+        firstFile.path.split("/").pop()?.replace(/\.\w+$/, "") || "App";
       return toTitleCase(name.replace(/(App|Component)$/, ""));
     }
 
@@ -274,20 +255,14 @@ export default function CodeViewer({
     if (files.length === 0) return;
 
     const zip = new JSZip();
-
-    // Add each file to the zip
     files.forEach((file) => {
       zip.file(file.path, file.code);
     });
 
-    // Generate the zip file
     const content = await zip.generateAsync({ type: "blob" });
-
-    // Generate app title for filename
     const appTitle = generateAppTitle(files);
     const filename = `${appTitle.replace(/[^a-zA-Z0-9]/g, "-")}-sitecoder.zip`;
 
-    // Create a download link and trigger the download
     const url = URL.createObjectURL(content);
     const a = document.createElement("a");
     a.href = url;
@@ -316,16 +291,18 @@ export default function CodeViewer({
   }, [onClose]);
 
   return (
-    <>
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-300 px-4">
-        <div className="inline-flex items-center gap-4">
+    <div className="flex h-full flex-col rounded-l-2xl border-l border-slate-700/50 bg-slate-900/90 shadow-2xl shadow-black/30">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-700/50 px-4">
+        <div className="inline-flex items-center gap-3">
           <button
-            className="hidden text-gray-400 hover:text-gray-700 md:block"
+            className="hidden text-slate-400 transition hover:text-slate-200 md:block"
             onClick={onClose}
           >
             <CloseIcon className="size-5" />
           </button>
-          <span className="hidden md:block">{appTitle}</span>
+          <span className="hidden text-sm font-medium text-slate-100 md:block">
+            {appTitle}
+          </span>
           {!disabledControls && (
             <Select
               value={selectValue}
@@ -334,12 +311,16 @@ export default function CodeViewer({
               }
               disabled={disabledControls}
             >
-              <SelectTrigger className="h-[38px] w-16 text-sm font-semibold !outline-none !ring-0 !ring-transparent">
+              <SelectTrigger className="h-8 w-[72px] rounded-lg border-slate-600/40 bg-slate-800/80 text-xs font-semibold text-slate-200 !outline-none !ring-0">
                 <SelectValue>{`v${currentVersion + 1}`}</SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="border-slate-700 bg-slate-900">
                 {reversedAllAssistantMessages.map((msg, i) => (
-                  <SelectItem key={i} value={i.toString()}>
+                  <SelectItem
+                    key={i}
+                    value={i.toString()}
+                    className="text-slate-200 focus:bg-slate-800 focus:text-slate-100"
+                  >
                     <div className="flex flex-col">
                       <span className="font-semibold">
                         v
@@ -347,7 +328,7 @@ export default function CodeViewer({
                           (allAssistantMessages.length - 1 - i) +
                           1}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-slate-500">
                         {timeAgo(msg.createdAt)}
                       </span>
                     </div>
@@ -367,18 +348,19 @@ export default function CodeViewer({
                     1,
                 )
               }
-              className="inline-flex h-[38px] items-center justify-center rounded bg-blue-500 px-2 text-xs font-medium text-white hover:bg-blue-600"
+              className="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-medium text-white transition hover:bg-blue-500"
             >
               Restore
             </button>
           )}
         </div>
-        <div className="rounded-lg border-2 border-gray-300 p-1">
+
+        <div className="inline-flex rounded-xl border border-slate-700/50 bg-slate-800/60 p-1">
           <button
             onClick={() => onTabChange("code")}
             data-active={activeTab === "code" ? true : undefined}
             disabled={disabledControls}
-            className="inline-flex h-7 w-16 items-center justify-center rounded text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 data-[active]:bg-blue-500 data-[active]:text-white"
+            className="inline-flex h-7 items-center justify-center rounded-lg px-3 text-xs font-medium text-slate-400 transition disabled:cursor-not-allowed disabled:opacity-50 data-[active]:bg-blue-600 data-[active]:text-white"
           >
             Code
           </button>
@@ -386,14 +368,14 @@ export default function CodeViewer({
             onClick={() => onTabChange("preview")}
             data-active={activeTab === "preview" ? true : undefined}
             disabled={disabledControls}
-            className="inline-flex h-7 w-16 items-center justify-center rounded text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 data-[active]:bg-blue-500 data-[active]:text-white"
+            className="inline-flex h-7 items-center justify-center rounded-lg px-3 text-xs font-medium text-slate-400 transition disabled:cursor-not-allowed disabled:opacity-50 data-[active]:bg-blue-600 data-[active]:text-white"
           >
             Preview
           </button>
         </div>
       </div>
 
-      <div className="flex grow flex-col overflow-y-auto bg-white">
+      <div className="relative flex grow flex-col overflow-hidden bg-[#0B0F19]">
         {activeTab === "code" ? (
           <StickToBottom
             className="relative grow overflow-hidden *:!h-[inherit]"
@@ -420,7 +402,7 @@ export default function CodeViewer({
         ) : (
           <>
             {files.length > 0 && (
-              <div className="flex h-full items-center justify-center">
+              <div className="flex h-full items-center justify-center p-4">
                 <CodeRunner
                   onRequestFix={onRequestFix}
                   language={language}
@@ -433,7 +415,7 @@ export default function CodeViewer({
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-300 px-4 py-4">
+      <div className="flex items-center justify-between border-t border-slate-700/50 px-4 py-3">
         <div className="inline-flex items-center gap-2.5 text-sm">
           <Share
             message={
@@ -445,25 +427,25 @@ export default function CodeViewer({
             }
           />
           <button
-            className="inline-flex items-center gap-1 rounded border border-gray-300 px-1.5 py-0.5 text-sm text-gray-600 transition enabled:hover:bg-white disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600/40 bg-slate-800/60 px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-slate-700/60 disabled:opacity-50"
             onClick={() => setRefresh((r) => r + 1)}
             disabled={disabledControls}
           >
-            <RefreshIcon className="size-3" />
+            <RefreshIcon className="size-3.5" />
             Refresh
           </button>
           <button
-            className="hidden items-center gap-1 rounded border border-gray-300 px-1.5 py-0.5 text-sm text-gray-600 transition hover:bg-white disabled:opacity-50 md:inline-flex"
+            className="hidden items-center gap-1.5 rounded-lg border border-slate-600/40 bg-slate-800/60 px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-slate-700/60 disabled:opacity-50 md:inline-flex"
             onClick={handleDownloadFiles}
             disabled={disabledControls}
             title="Download files"
           >
-            <DownloadIcon className="size-3" />
+            <DownloadIcon className="size-3.5" />
             Download
           </button>
         </div>
-        <div className="text-xs text-gray-500 md:hidden">{chat.model}</div>
+        <div className="text-xs text-slate-500 md:hidden">{chat.model}</div>
       </div>
-    </>
+    </div>
   );
 }

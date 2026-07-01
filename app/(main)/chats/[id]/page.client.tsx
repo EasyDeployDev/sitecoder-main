@@ -8,7 +8,7 @@ import {
   extractAllCodeBlocks,
 } from "@/lib/utils";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { memo, startTransition, use, useEffect, useRef, useState } from "react";
 import { ChatCompletionStream } from "together-ai/lib/ChatCompletionStream.mjs";
 import ChatBox from "./chat-box";
@@ -19,11 +19,27 @@ import type { Chat, Message } from "./page";
 import { Context } from "../../providers";
 
 const HeaderChat = memo(({ chat }: { chat: Chat }) => (
-  <div className="flex items-center gap-4 px-4 py-4">
-    <a href="/" target="_blank">
-      <LogoSmall />
-    </a>
-    <p className="italic text-gray-500">{chat.title}</p>
+  <div className="flex items-center justify-between px-4 py-3">
+    <div className="flex items-center gap-3">
+      <Link
+        href="/"
+        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-slate-200 transition hover:bg-slate-700"
+      >
+        <LogoSmall />
+      </Link>
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-slate-500">Chat</span>
+        <span className="line-clamp-1 max-w-[240px] text-sm font-medium text-slate-100">
+          {chat.title}
+        </span>
+      </div>
+    </div>
+    <Link
+      href="/chats"
+      className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+    >
+      Workspace
+    </Link>
   </div>
 ));
 
@@ -31,11 +47,11 @@ HeaderChat.displayName = "HeaderChat";
 
 export default function PageClient({ chat }: { chat: Chat }) {
   const context = use(Context);
-  const searchParams = useSearchParams();
   const [streamPromise, setStreamPromise] = useState<
     Promise<ReadableStream> | undefined
   >(context.streamPromise);
   const [streamText, setStreamText] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
   const [isShowingCodeViewer, setIsShowingCodeViewer] = useState(
     chat.messages.some((m) => m.role === "assistant"),
   );
@@ -54,92 +70,97 @@ export default function PageClient({ chat }: { chat: Chat }) {
 
       isHandlingStreamRef.current = true;
       context.setStreamPromise(undefined);
+      setIsThinking(true);
 
-      const stream = await streamPromise;
-      let didPushToCode = false;
-      let didPushToPreview = false;
+      try {
+        const stream = await streamPromise;
+        let didPushToCode = false;
+        let didPushToPreview = false;
 
-      ChatCompletionStream.fromReadableStream(stream)
-        .on("content", (delta, content) => {
-          setStreamText((text) => text + delta);
+        ChatCompletionStream.fromReadableStream(stream)
+          .on("content", (delta, content) => {
+            setIsThinking(false);
+            setStreamText((text) => text + delta);
 
-          if (
-            !didPushToCode &&
-            parseReplySegments(content).some((seg) => seg.type === "file")
-          ) {
-            didPushToCode = true;
-            setIsShowingCodeViewer(true);
-            setActiveTab("code");
-          }
-
-          if (
-            !didPushToPreview &&
-            parseReplySegments(content).some(
-              (seg) => seg.type === "file" && !seg.isPartial,
-            )
-          ) {
-            didPushToPreview = true;
-            setIsShowingCodeViewer(true);
-          }
-        })
-        .on("finalContent", async (finalText) => {
-          startTransition(async () => {
-            // Get all previous assistant messages with files
-            const previousAssistantMessages = chat.messages.filter(
-              (m) =>
-                m.role === "assistant" &&
-                extractAllCodeBlocks(m.content).length > 0,
-            );
-
-            // Extract all files from previous messages
-            const previousFiles = previousAssistantMessages.flatMap((msg) =>
-              extractAllCodeBlocks(msg.content),
-            );
-
-            // Extract files from current AI response
-            const currentFiles = extractAllCodeBlocks(finalText);
-
-            // Merge files (current overrides previous for same paths)
-            const fileMap = new Map();
-            previousFiles.forEach((file) => fileMap.set(file.path, file));
-            currentFiles.forEach((file) => fileMap.set(file.path, file));
-            const allFiles = Array.from(fileMap.values());
-
-            const message = await createMessage(
-              chat.id,
-              finalText, // Store original AI response content (only changed files)
-              "assistant",
-              allFiles, // Store cumulative files
-            );
-
-            startTransition(() => {
-              isHandlingStreamRef.current = false;
-              setStreamText("");
-              setStreamPromise(undefined);
-              setActiveMessage(message);
-              // When streaming finishes, switch to preview mode and keep the viewer open
+            if (
+              !didPushToCode &&
+              parseReplySegments(content).some((seg) => seg.type === "file")
+            ) {
+              didPushToCode = true;
               setIsShowingCodeViewer(true);
-              setActiveTab("preview");
-              router.refresh();
+              setActiveTab("code");
+            }
+
+            if (
+              !didPushToPreview &&
+              parseReplySegments(content).some(
+                (seg) => seg.type === "file" && !seg.isPartial,
+              )
+            ) {
+              didPushToPreview = true;
+              setIsShowingCodeViewer(true);
+            }
+          })
+          .on("finalContent", async (finalText) => {
+            startTransition(async () => {
+              const previousAssistantMessages = chat.messages.filter(
+                (m) =>
+                  m.role === "assistant" &&
+                  extractAllCodeBlocks(m.content).length > 0,
+              );
+
+              const previousFiles = previousAssistantMessages.flatMap((msg) =>
+                extractAllCodeBlocks(msg.content),
+              );
+
+              const currentFiles = extractAllCodeBlocks(finalText);
+
+              const fileMap = new Map();
+              previousFiles.forEach((file) => fileMap.set(file.path, file));
+              currentFiles.forEach((file) => fileMap.set(file.path, file));
+              const allFiles = Array.from(fileMap.values());
+
+              const message = await createMessage(
+                chat.id,
+                finalText,
+                "assistant",
+                allFiles,
+              );
+
+              startTransition(() => {
+                isHandlingStreamRef.current = false;
+                setStreamText("");
+                setIsThinking(false);
+                setStreamPromise(undefined);
+                setActiveMessage(message);
+                setIsShowingCodeViewer(true);
+                setActiveTab("preview");
+                router.refresh();
+              });
             });
           });
-        });
+      } catch (err) {
+        isHandlingStreamRef.current = false;
+        setIsThinking(false);
+        console.error("Stream error:", err);
+      }
     }
 
     f();
   }, [chat.id, router, streamPromise, context]);
 
   return (
-    <div className="h-dvh">
+    <div className="h-dvh bg-[#0B0F19]">
       <div className="flex h-full">
         <div
-          className={`flex w-full shrink-0 flex-col overflow-hidden ${isShowingCodeViewer ? "lg:w-[30%]" : "lg:w-full"}`}
+          className={`flex w-full shrink-0 flex-col overflow-hidden transition-all duration-300 ease-out ${isShowingCodeViewer ? "lg:w-[35%]" : "lg:w-full"}`}
         >
           <HeaderChat chat={chat} />
 
           <ChatLog
             chat={chat}
             streamText={streamText}
+            isThinking={isThinking}
             activeMessage={activeMessage}
             onMessageClick={(message) => {
               if (message !== activeMessage) {
@@ -215,7 +236,6 @@ export default function PageClient({ chat }: { chat: Chat }) {
                 startTransition(async () => {
                   if (!message) return;
 
-                  // Helper to get files from a message (JSON field or extract from content)
                   const getFilesFromMessage = (msg: Message) => {
                     return (
                       (msg.files as any[]) || extractAllCodeBlocks(msg.content)

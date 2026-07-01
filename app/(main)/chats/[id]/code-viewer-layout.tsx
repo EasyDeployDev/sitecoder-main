@@ -9,6 +9,7 @@ import {
 import { useMediaQuery } from "@/hooks/use-media-query";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { ReactNode } from "react";
+import { motion } from "framer-motion";
 
 export default function CodeViewerLayout({
   children,
@@ -25,10 +26,10 @@ export default function CodeViewerLayout({
     <>
       {isMobile ? (
         <Drawer open={isShowing} onClose={onClose}>
-          <DrawerContent>
+          <DrawerContent className="border-slate-700 bg-[#0B0F19]">
             <VisuallyHidden.Root>
               <DrawerTitle>Code</DrawerTitle>
-              <DrawerDescription>Description</DrawerDescription>
+              <DrawerDescription>Code preview</DrawerDescription>
             </VisuallyHidden.Root>
 
             <div className="flex h-[90vh] flex-col overflow-y-scroll">
@@ -37,15 +38,16 @@ export default function CodeViewerLayout({
           </DrawerContent>
         </Drawer>
       ) : (
-        <div
-          className={`${isShowing ? "w-[70%]" : "w-0"} hidden h-full overflow-hidden py-5 transition-[width] lg:block`}
+        <motion.div
+          initial={false}
+          animate={{ width: isShowing ? "65%" : "0%" }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="hidden h-full overflow-hidden py-4 lg:block"
         >
-          <div className="ml-3 flex h-full flex-col rounded-l-xl shadow-lg shadow-gray-400/40">
-            <div className="flex h-full flex-col rounded-l-xl shadow shadow-gray-800/50">
-              {children}
-            </div>
+          <div className="ml-3 flex h-full flex-col overflow-hidden">
+            {children}
           </div>
-        </div>
+        </motion.div>
       )}
     </>
   );
