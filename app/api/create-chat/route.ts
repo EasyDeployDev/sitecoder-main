@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
       try {
         const screenshotResponse = await together.chat.completions.create({
           model: DEFAULT_MODEL,
-          reasoning: { enabled: false },
           temperature: 0.4,
           max_tokens: 1000,
           messages: [

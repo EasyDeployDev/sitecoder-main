@@ -75,7 +75,6 @@ export async function POST(req: Request) {
 
   const res = await together.chat.completions.create({
     model: resolveModel(model),
-    reasoning: { enabled: false },
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
     stream: true,
     temperature: 0.4,
