@@ -3,7 +3,6 @@ FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
 
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -25,12 +24,16 @@ RUN pnpm install --frozen-lockfile --ignore-scripts \
 # ---- builder ----
 FROM deps AS builder
 
+ENV NODE_ENV=production
+
 COPY . .
 
 RUN pnpm next build
 
 # ---- runner ----
 FROM base AS runner
+
+ENV NODE_ENV=production
 
 RUN groupadd --gid 1001 nodejs \
     && useradd --uid 1001 --gid nodejs --shell /bin/false nextjs
