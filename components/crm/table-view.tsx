@@ -16,18 +16,8 @@ import StatusSelect from "@/components/crm/status-select";
 import StatusBadgeReadOnly from "@/components/crm/status-badge";
 import type { CrmRecord, PropertyDefRecord } from "@/lib/crm-types";
 import { setArchived } from "@/lib/crm";
+import { timeAgo } from "@/lib/utils";
 import { MessageSquare, Archive, Database } from "lucide-react";
-
-function timeAgo(date: Date) {
-  const diffMs = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 function renderPropertyValue(def: PropertyDefRecord, value: unknown) {
   if (value === undefined || value === null || value === "") {

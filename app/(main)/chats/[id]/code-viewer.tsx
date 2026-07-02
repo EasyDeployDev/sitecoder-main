@@ -15,6 +15,7 @@ import {
   extractAllCodeBlocks,
   generateIntelligentFilename,
   getExtensionForLanguage,
+  timeAgo,
   toTitleCase,
 } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -239,17 +240,6 @@ export default function CodeViewer({
   const selectValue = disabledControls
     ? undefined
     : (allAssistantMessages.length - 1 - currentVersionIndex).toString();
-
-  const timeAgo = (date: Date) => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
-  };
 
   const handleDownloadFiles = async () => {
     if (files.length === 0) return;

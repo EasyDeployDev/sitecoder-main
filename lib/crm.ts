@@ -10,6 +10,8 @@ import {
   canViewAllRecords,
   effectiveChatRole,
   ForbiddenError,
+  type AuthUser,
+  type ChatRole,
 } from "@/lib/rbac";
 import {
   getCachedChatMembersFor,
@@ -70,7 +72,15 @@ function toPropertyDefRecord(row: {
   };
 }
 
-async function assertCanEdit(chatId: string) {
+// Fetch the raw ownerId/membership for a single chat and run it through
+// the requested RBAC check. Admins always pass. This replaces the
+// duplicated owner+membership lookup pattern that was scattered through
+// the mutation actions below.
+async function assertRecordAccess(
+  chatId: string,
+  check: (user: AuthUser, ctx: { ownerId: string | null; memberRole?: ChatRole | null }) => boolean,
+  errorMessage = "You don't have permission to do that.",
+) {
   const user = await requireUser();
   if (canViewAllRecords(user)) return user;
 
@@ -86,12 +96,20 @@ async function assertCanEdit(chatId: string) {
     select: { role: true },
   });
 
-  const ok = canEditChat(user, {
+  const ok = check(user, {
     ownerId: chat.ownerId,
     memberRole: membership?.role,
   });
-  if (!ok) throw new ForbiddenError("You don't have edit access to this record.");
+  if (!ok) throw new ForbiddenError(errorMessage);
   return user;
+}
+
+async function assertCanEdit(chatId: string) {
+  return assertRecordAccess(
+    chatId,
+    canEditChat,
+    "You don't have edit access to this record.",
+  );
 }
 
 export async function listRecords(
@@ -296,21 +314,11 @@ export async function setArchived(
 export async function deleteRecord(id: string): Promise<void> {
   const user = await requireUser();
   if (!canViewAllRecords(user)) {
-    const prisma = getPrisma();
-    const chat = await prisma.chat.findUnique({
-      where: { id },
-      select: { ownerId: true },
-    });
-    if (!chat) throw new ForbiddenError("Record not found.");
-    const membership = await prisma.chatMember.findUnique({
-      where: { chatId_userId: { chatId: id, userId: user.id } },
-      select: { role: true },
-    });
-    const ok = canDeleteChat(user, {
-      ownerId: chat.ownerId,
-      memberRole: membership?.role,
-    });
-    if (!ok) throw new ForbiddenError("Only the owner can delete this record.");
+    await assertRecordAccess(
+      id,
+      canDeleteChat,
+      "Only the owner can delete this record.",
+    );
   }
 
   const prisma = getPrisma();

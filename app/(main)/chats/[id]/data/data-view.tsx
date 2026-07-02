@@ -12,18 +12,8 @@ import TagsField from "./tags-field";
 import PropertyField from "./property-field";
 import type { CrmRecord, PropertyDefRecord } from "@/lib/crm-types";
 import { setArchived, deleteRecord } from "@/lib/crm";
+import { timeAgo } from "@/lib/utils";
 import { Archive, ArchiveRestore, MessageSquare, Trash2 } from "lucide-react";
-
-function timeAgo(date: Date) {
-  const diffMs = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 export default function DataView({
   record,
