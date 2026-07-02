@@ -19,10 +19,10 @@ export default async function Header() {
       <div className="absolute right-6 top-1/2 flex -translate-y-1/2 items-center gap-2">
         {showWaitlistLink && (
           <Link
-            href="/admin/waitlist"
+            href="/admin"
             className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-slate-100"
           >
-            Waitlist
+            Admin
             {pendingCount > 0 && (
               <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500/20 px-1 text-xs font-semibold text-blue-400">
                 {pendingCount}

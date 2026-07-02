@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Header from "@/components/header";
 import { getCurrentUser } from "@/lib/auth";
 import { canManageWaitlist } from "@/lib/rbac";
 import { listWaitlist } from "@/lib/waitlist";
@@ -19,17 +18,14 @@ export default async function WaitlistAdminPage() {
   const entries = await listWaitlist();
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <Header />
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-6 py-6">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-100">Waitlist</h1>
-          <p className="text-sm text-muted-foreground">
-            Review and approve accounts before they can sign in.
-          </p>
-        </div>
-        <WaitlistTable entries={entries} currentUserId={user.id} />
+    <div className="flex flex-1 flex-col gap-4 px-6 py-6">
+      <div>
+        <h1 className="text-xl font-semibold text-slate-100">Waitlist</h1>
+        <p className="text-sm text-muted-foreground">
+          Review and approve accounts before they can sign in.
+        </p>
       </div>
+      <WaitlistTable entries={entries} currentUserId={user.id} />
     </div>
   );
 }
