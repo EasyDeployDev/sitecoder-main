@@ -4,7 +4,7 @@ export function resolveModel(model: string): string {
   return MODEL_ALIASES[model] ?? model;
 }
 
-export const DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b:free";
+export const DEFAULT_MODEL = "cohere/north-mini-code:free";
 export const CODER_LABEL = "Coder";
 
 /** Text-only coder model — skip vision API calls for screenshot uploads. */
