@@ -8,7 +8,6 @@ import LoadingButton from "@/components/loading-button";
 import Spinner from "@/components/spinner";
 import UploadIcon from "@/components/icons/upload-icon";
 import assert from "assert";
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   use,
@@ -16,10 +15,8 @@ import {
   useRef,
   useTransition,
   useEffect,
-  useMemo,
   memo,
 } from "react";
-import * as Select from "@radix-ui/react-select";
 
 import { Context } from "./providers";
 import { useS3Upload } from "next-s3-upload";
@@ -31,7 +28,6 @@ export default function HomeForm() {
 
   const [prompt, setPrompt] = useState("");
   const model = DEFAULT_MODEL;
-  const [quality, setQuality] = useState("fast");
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(
     undefined,
   );
@@ -53,21 +49,12 @@ export default function HomeForm() {
 
   const { uploadToS3 } = useS3Upload();
 
-  const qualityOptions = useMemo(
-    () => [
-      { value: "fast", label: "High quality [faster]" },
-      { value: "standard", label: "Low quality [standard]" },
-    ],
-    [],
-  );
-
   const handleScreenshotUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (prompt.length === 0) setPrompt("Build this");
-    setQuality("fast");
     setScreenshotLoading(true);
     const { url } = await uploadToS3(file);
     setScreenshotUrl(url);
@@ -98,11 +85,10 @@ export default function HomeForm() {
             className="relative mt-8 w-full max-w-2xl"
             action={async (formData) => {
               startTransition(async () => {
-                const { prompt, model, quality } = Object.fromEntries(formData);
+                const { prompt, model } = Object.fromEntries(formData);
 
                 assert.ok(typeof prompt === "string");
                 assert.ok(typeof model === "string");
-                assert.ok(quality === "high" || quality === "low");
 
                 const response = await fetch("/api/create-chat", {
                   method: "POST",
@@ -110,7 +96,6 @@ export default function HomeForm() {
                   body: JSON.stringify({
                     prompt,
                     model,
-                    quality,
                     screenshotUrl,
                   }),
                 });
@@ -228,51 +213,8 @@ export default function HomeForm() {
 
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/60 px-2 py-1 text-xs font-medium text-slate-400">
                       <LightningBoltIcon className="size-3" />
-                      Kimi K2.7 Code
+                      Coder
                     </span>
-
-                    <div className="hidden h-4 w-px bg-slate-700 sm:block" />
-
-                    <Select.Root
-                      name="quality"
-                      value={quality}
-                      onValueChange={setQuality}
-                    >
-                      <Select.Trigger className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/40">
-                        <Select.Value aria-label={quality}>
-                          <span className="hidden sm:inline">
-                        {quality === "fast"
-                          ? "High quality [faster]"
-                          : "Low quality [standard]"}
-                          </span>
-                          <span className="sm:hidden">
-                            <LightningBoltIcon className="size-3" />
-                          </span>
-                        </Select.Value>
-                        <Select.Icon>
-                          <ChevronDownIcon className="size-3" />
-                        </Select.Icon>
-                      </Select.Trigger>
-                      <Select.Portal>
-                        <Select.Content className="overflow-hidden rounded-xl border border-slate-700/60 bg-slate-900 shadow-xl">
-                          <Select.Viewport className="space-y-0.5 p-1.5">
-                            {qualityOptions.map((q) => (
-                              <Select.Item
-                                key={q.value}
-                                value={q.value}
-                                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-300 outline-none transition data-[highlighted]:bg-slate-800 data-[highlighted]:text-slate-100"
-                              >
-                                <Select.ItemText>{q.label}</Select.ItemText>
-                                <Select.ItemIndicator className="ml-auto">
-                                  <CheckIcon className="size-3 text-blue-400" />
-                                </Select.ItemIndicator>
-                              </Select.Item>
-                            ))}
-                          </Select.Viewport>
-                          <Select.Arrow className="fill-slate-700" />
-                        </Select.Content>
-                      </Select.Portal>
-                    </Select.Root>
 
                     <div className="hidden h-4 w-px bg-slate-700 sm:block" />
 
@@ -303,10 +245,7 @@ export default function HomeForm() {
                 </div>
 
                 {isPending && (
-                  <LoadingMessage
-                    isHighQuality={quality === "standard"}
-                    screenshotUrl={screenshotUrl}
-                  />
+                  <LoadingMessage screenshotUrl={screenshotUrl} />
                 )}
               </div>
             </Fieldset>
@@ -358,21 +297,17 @@ const Footer = memo(() => {
 });
 
 function LoadingMessage({
-  isHighQuality,
   screenshotUrl,
 }: {
-  isHighQuality: boolean;
   screenshotUrl: string | undefined;
 }) {
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-slate-900/90 px-4 backdrop-blur-sm">
       <div className="flex flex-col items-center justify-center gap-3 text-slate-300">
         <span className="text-balance text-center text-sm">
-          {isHighQuality
-            ? "Coming up with project plan, may take 15 seconds..."
-            : screenshotUrl
-              ? "Analyzing your screenshot..."
-              : "Creating your app..."}
+          {screenshotUrl
+            ? "Analyzing your screenshot..."
+            : "Creating your app..."}
         </span>
         <Spinner />
       </div>

@@ -3,7 +3,6 @@ import { getPrisma } from "@/lib/prisma";
 import {
   getMainCodingPrompt,
   screenshotToCodePrompt,
-  softwareArchitectPrompt,
 } from "@/lib/prompts";
 import { DEFAULT_MODEL, resolveModel } from "@/lib/constants";
 import { createAIClient } from "@/lib/ai-config";
@@ -14,14 +13,14 @@ import { UnauthorizedError } from "@/lib/rbac";
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
-    const { prompt, model, quality, screenshotUrl } = await request.json();
+    const { prompt, model, screenshotUrl } = await request.json();
     const resolvedModel = resolveModel(model);
 
     const prisma = getPrisma();
     const chat = await prisma.chat.create({
       data: {
         model: resolvedModel,
-        quality,
+        quality: "coder",
         prompt,
         title: "",
         shadcn: true,
@@ -83,29 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     let userMessage: string;
-    if (quality === "standard") {
-      let initialRes = await together.chat.completions.create({
-        model: DEFAULT_MODEL,
-        messages: [
-          {
-            role: "system",
-            content: softwareArchitectPrompt,
-          },
-          {
-            role: "user",
-            content: fullScreenshotDescription
-              ? fullScreenshotDescription + prompt
-              : prompt,
-          },
-        ],
-        temperature: 0.4,
-        max_tokens: 3000,
-      });
-
-      console.log("PLAN:", initialRes.choices[0].message?.content);
-
-      userMessage = initialRes.choices[0].message?.content ?? prompt;
-    } else if (fullScreenshotDescription) {
+    if (fullScreenshotDescription) {
       userMessage =
         prompt +
         "RECREATE THIS APP AS CLOSELY AS POSSIBLE: " +

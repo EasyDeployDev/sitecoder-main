@@ -4,7 +4,7 @@ export function resolveModel(model: string): string {
   return MODEL_ALIASES[model] ?? model;
 }
 
-export const DEFAULT_MODEL = "moonshotai/kimi-k2.7-code";
+export const DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b:free";
 
 export const SUGGESTED_PROMPTS = [
   {
