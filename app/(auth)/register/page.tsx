@@ -23,8 +23,7 @@ export default async function RegisterPage({
         </h1>
         <p className="mt-1 text-sm text-slate-400">
           New accounts join a waitlist and need admin approval before
-          signing in. The first account created becomes the workspace
-          owner and is approved automatically.
+          signing in.
         </p>
       </div>
 

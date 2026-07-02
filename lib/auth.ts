@@ -134,9 +134,9 @@ export type SignUpResult =
 // pattern — so the email is reserved and the password is hashed and
 // stored right away. What differs from that pattern is that we don't
 // issue a Session (i.e. we don't log the user in) unless the account is
-// already APPROVED. New accounts land in the waitlist as PENDING and an
-// admin/owner must approve them (see lib/waitlist.ts) before a session can
-// ever be created for them.
+// already APPROVED. New accounts always land in the waitlist as PENDING
+// and an admin/owner must approve them (see lib/waitlist.ts) before a
+// session can ever be created for them.
 export async function signUp(
   email: string,
   password: string,
@@ -160,28 +160,16 @@ export async function signUp(
     return { ok: false, error: "An account with that email already exists." };
   }
 
-  // The very first user to sign up becomes the workspace OWNER (and is
-  // auto-approved, so there's always at least one admin able to review the
-  // waitlist); everyone else starts as a MEMBER pending approval.
-  const userCount = await prisma.user.count();
-  const isFirstUser = userCount === 0;
-  const role: GlobalRole = isFirstUser ? "OWNER" : "MEMBER";
-
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
     data: {
       email: normalizedEmail,
       passwordHash,
       name: name?.trim() || null,
-      role,
-      status: isFirstUser ? "APPROVED" : "PENDING",
+      role: "MEMBER",
+      status: "PENDING",
     },
   });
-
-  if (isFirstUser) {
-    await createSession(user.id);
-    return { ok: true, user: toAuthUser(user), waitlisted: false };
-  }
 
   return { ok: true, user: toAuthUser(user), waitlisted: true };
 }
