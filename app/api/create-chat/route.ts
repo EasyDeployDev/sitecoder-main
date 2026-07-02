@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     let userMessage: string;
-    if (quality === "high") {
+    if (quality === "standard") {
       let initialRes = await together.chat.completions.create({
         model: DEFAULT_MODEL,
         messages: [

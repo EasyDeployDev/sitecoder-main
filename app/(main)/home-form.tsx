@@ -31,7 +31,7 @@ export default function HomeForm() {
 
   const [prompt, setPrompt] = useState("");
   const model = DEFAULT_MODEL;
-  const [quality, setQuality] = useState("low");
+  const [quality, setQuality] = useState("fast");
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(
     undefined,
   );
@@ -55,8 +55,8 @@ export default function HomeForm() {
 
   const qualityOptions = useMemo(
     () => [
-      { value: "low", label: "Low quality [faster]" },
-      { value: "high", label: "High quality [slower]" },
+      { value: "fast", label: "High quality [faster]" },
+      { value: "standard", label: "Low quality [standard]" },
     ],
     [],
   );
@@ -67,7 +67,7 @@ export default function HomeForm() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (prompt.length === 0) setPrompt("Build this");
-    setQuality("low");
+    setQuality("fast");
     setScreenshotLoading(true);
     const { url } = await uploadToS3(file);
     setScreenshotUrl(url);
@@ -241,9 +241,9 @@ export default function HomeForm() {
                       <Select.Trigger className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/40">
                         <Select.Value aria-label={quality}>
                           <span className="hidden sm:inline">
-                            {quality === "low"
-                              ? "Low quality [faster]"
-                              : "High quality [slower]"}
+                        {quality === "fast"
+                          ? "High quality [faster]"
+                          : "Low quality [standard]"}
                           </span>
                           <span className="sm:hidden">
                             <LightningBoltIcon className="size-3" />
@@ -304,7 +304,7 @@ export default function HomeForm() {
 
                 {isPending && (
                   <LoadingMessage
-                    isHighQuality={quality === "high"}
+                    isHighQuality={quality === "standard"}
                     screenshotUrl={screenshotUrl}
                   />
                 )}
