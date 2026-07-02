@@ -17,18 +17,7 @@ export async function POST(request: NextRequest) {
     const resolvedModel = resolveModel(model);
 
     const prisma = getPrisma();
-    const chat = await prisma.chat.create({
-      data: {
-        model: resolvedModel,
-        quality: "coder",
-        prompt,
-        title: "",
-        shadcn: true,
-        ownerId: user.id,
-      },
-    });
-
-    const together = createAIClient(chat.id);
+    const together = createAIClient("create-chat");
 
     async function fetchTitle() {
       const responseForChatTitle = await together.chat.completions.create({
@@ -45,13 +34,12 @@ export async function POST(request: NextRequest) {
           },
         ],
       });
-      const title = responseForChatTitle.choices[0].message?.content || prompt;
-      return title;
+      return responseForChatTitle.choices[0].message?.content || prompt;
     }
 
     const title = await fetchTitle();
 
-    let fullScreenshotDescription;
+    let fullScreenshotDescription: string | undefined;
     if (screenshotUrl) {
       try {
         const screenshotResponse = await together.chat.completions.create({
@@ -75,28 +63,28 @@ export async function POST(request: NextRequest) {
         });
 
         fullScreenshotDescription =
-          screenshotResponse.choices[0].message?.content;
+          screenshotResponse.choices[0].message?.content ?? undefined;
       } catch (err) {
         console.warn("Screenshot processing failed, continuing without it:", err);
       }
     }
 
-    let userMessage: string;
-    if (fullScreenshotDescription) {
-      userMessage =
-        prompt +
+    const userMessage = fullScreenshotDescription
+      ? prompt +
         "RECREATE THIS APP AS CLOSELY AS POSSIBLE: " +
-        fullScreenshotDescription;
-    } else {
-      userMessage = prompt;
-    }
+        fullScreenshotDescription
+      : prompt;
 
-    let newChat = await prisma.chat.update({
-      where: {
-        id: chat.id,
-      },
+    // Create the chat and its seed messages in one write so we never leave
+    // behind an empty chat if downstream steps fail.
+    const newChat = await prisma.chat.create({
       data: {
+        model: resolvedModel,
+        quality: "coder",
+        prompt,
         title,
+        shadcn: true,
+        ownerId: user.id,
         messages: {
           createMany: {
             data: [
@@ -120,10 +108,10 @@ export async function POST(request: NextRequest) {
       .at(-1);
     if (!lastMessage) throw new Error("No new message");
 
-    invalidateMessageCache(chat.id, lastMessage.id);
+    invalidateMessageCache(newChat.id, lastMessage.id);
 
     return NextResponse.json({
-      chatId: chat.id,
+      chatId: newChat.id,
       lastMessageId: lastMessage.id,
     });
   } catch (error) {
