@@ -36,7 +36,9 @@ FROM base AS runner
 ENV NODE_ENV=production
 
 RUN groupadd --gid 1001 nodejs \
-    && useradd --uid 1001 --gid nodejs --shell /bin/false nextjs
+    && useradd --uid 1001 --gid nodejs --shell /bin/false nextjs \
+    && mkdir -p /home/nextjs/.cache/node/corepack /pnpm \
+    && chown -R nextjs:nodejs /home/nextjs /pnpm
 
 WORKDIR /app
 
