@@ -50,4 +50,9 @@ export const SUGGESTED_PROMPTS = [
     description:
       "Make a beautiful scientific calculator with a history panel that shows past calculations. Support basic arithmetic, percentages, parentheses, and common functions like square root and exponents. Style it with a modern glassmorphism design.",
   },
+  {
+    title: "Deployed Stack",
+    description:
+      "Build a deployed stack template with shared auth and todo logic exposed through Next.js actions and an Elysia route adapter. Include email/password login, current-user todo CRUD, and a clean package layout for deployment.",
+  },
 ];

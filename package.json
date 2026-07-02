@@ -1,13 +1,35 @@
 {
   "name": "sitecoder",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.1",
+  "private": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": [
+    "app",
+    "components",
+    "hooks",
+    "lib",
+    "public",
+    "prisma",
+    "middleware.ts",
+    "next.config.ts",
+    "postcss.config.mjs",
+    "tailwind.config.ts",
+    "tsconfig.json",
+    "package.json",
+    "README.md",
+    "LICENSE",
+    "components.json"
+  ],
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev",
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "tsc --noEmit --noUnusedLocals"
+    "lint": "tsc --noEmit --noUnusedLocals",
+    "release": "npm publish --access public"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1078.0",

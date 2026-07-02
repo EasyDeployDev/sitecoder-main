@@ -6,6 +6,200 @@ import landing from "./examples/landing.json";
 import pomodoro from "./examples/pomodoro.json";
 import quiz from "./examples/quiz.json";
 
+const deployedStack = dedent(`
+The user wants a deployed stack template that keeps auth and todo behavior in one place while exposing it through Next.js-style actions and an Elysia-style route adapter.
+
+This should be a small, deployment-friendly TypeScript package:
+
+- shared database bootstrap
+- centralized auth helpers
+- todo CRUD in a service layer
+- thin action and route adapters
+- a single public export surface
+
+\`\`\`ts{path=src/lib/server/types.ts}
+export type AuthInput = { email: string; password: string };
+
+export type User = {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+};
+
+export type Todo = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  completed: boolean;
+};
+
+export type TodoInput = {
+  title: string;
+  description?: string;
+};
+\`\`\`
+
+\`\`\`ts{path=src/lib/server/db/index.ts}
+import { createDatabase, type NanoDatabase } from "nanodb-orm";
+import { authPlugin, withAuth, type AuthEnabled } from "@nanodb-orm/plugin-auth";
+import { schema } from "./schema.ts";
+
+type AppDatabase = NanoDatabase<typeof schema>;
+export type AuthDatabase = AuthEnabled<AppDatabase>;
+
+let dbPromise: Promise<AuthDatabase> | null = null;
+
+export async function getDb(): Promise<AuthDatabase> {
+  if (!dbPromise) {
+    dbPromise = (async () => {
+      const db = await createDatabase({
+        tables: schema,
+        plugins: [authPlugin()],
+      });
+      return withAuth(db);
+    })();
+  }
+  return dbPromise;
+}
+\`\`\`
+
+\`\`\`ts{path=src/lib/server/auth.ts}
+import { eq } from "nanodb-orm";
+import type { AuthDatabase } from "./db/index.ts";
+import type { AuthInput, User } from "./types.ts";
+import { makeId } from "./utils/id.ts";
+
+const CREDENTIAL_PROVIDER_ID = "credential";
+
+export async function loginWithCredentials(
+  db: AuthDatabase,
+  input: AuthInput,
+): Promise<{ sessionToken: string; user: User }> {
+  const users = db.auth.tables.user;
+  const accounts = db.auth.tables.account;
+  const sessions = db.auth.tables.session;
+
+  const email = db.auth.normalizeEmail(input.email);
+  const foundUsers = await db.select().from(users).where(eq(users.email, email));
+  let activeUser = foundUsers[0] ?? null;
+
+  if (!activeUser) {
+    const [createdUser] = await db.insert(users).values({
+      id: makeId("usr"),
+      email,
+    }).returning();
+    if (!createdUser) throw new Error("USER_CREATION_FAILED");
+    activeUser = createdUser;
+
+    await db.insert(accounts).values({
+      id: makeId("acct"),
+      userId: activeUser.id,
+      providerId: CREDENTIAL_PROVIDER_ID,
+      accountId: activeUser.id,
+      password: input.password,
+    });
+  }
+
+  const sessionRecord = db.auth.createSessionRecord(activeUser.id, {
+    id: makeId("sess"),
+  });
+  const [session] = await db.insert(sessions).values(sessionRecord as Record<string, unknown>).returning();
+  if (!session?.token) throw new Error("SESSION_TOKEN_NOT_CREATED");
+
+  return { sessionToken: session.token, user: activeUser as User };
+}
+
+export async function requireAuthenticatedUser(db: AuthDatabase, sessionToken: string): Promise<User> {
+  const token = sessionToken.trim();
+  if (!token) throw new Error("UNAUTHORIZED");
+
+  const sessions = db.auth.tables.session;
+  const users = db.auth.tables.user;
+  const sessionRows = await db.select().from(sessions).where(eq(sessions.token, token));
+  const session = sessionRows[0] ?? null;
+  if (!session || db.auth.isSessionExpired(session.expiresAt)) throw new Error("UNAUTHORIZED");
+
+  const userRows = await db.select().from(users).where(eq(users.id, session.userId));
+  const user = userRows[0] ?? null;
+  if (!user) throw new Error("UNAUTHORIZED");
+
+  return user as User;
+}
+\`\`\`
+
+\`\`\`ts{path=src/lib/server/services/todo-service.ts}
+import { eq } from "nanodb-orm";
+import type { AuthDatabase } from "../db/index.ts";
+import type { Todo, TodoInput } from "../types.ts";
+import { makeId } from "../utils/id.ts";
+
+export async function listTodos(db: AuthDatabase, userId: string): Promise<Todo[]> {
+  const rows = await db.select().from(db.tables.todo).where(eq(db.tables.todo.userId, userId));
+  return rows as Todo[];
+}
+
+export async function createTodo(db: AuthDatabase, userId: string, input: TodoInput): Promise<Todo> {
+  const [todo] = await db.insert(db.tables.todo).values({
+    id: makeId("todo"),
+    userId,
+    title: input.title,
+    description: input.description ?? null,
+    completed: false,
+  }).returning();
+  if (!todo) throw new Error("TODO_CREATE_FAILED");
+  return todo as Todo;
+}
+\`\`\`
+
+\`\`\`ts{path=src/lib/server/actions.ts}
+import { getDb } from "./db/index.ts";
+import { loginWithCredentials, requireAuthenticatedUser } from "./auth.ts";
+import { createTodo, listTodos } from "./services/todo-service.ts";
+import type { AuthInput, TodoInput } from "./types.ts";
+
+export async function loginAction(input: AuthInput) {
+  return loginWithCredentials(await getDb(), input);
+}
+
+export async function listTodosAction(sessionToken: string) {
+  const db = await getDb();
+  const user = await requireAuthenticatedUser(db, sessionToken);
+  return listTodos(db, user.id);
+}
+
+export async function createTodoAction(sessionToken: string, input: TodoInput) {
+  const db = await getDb();
+  const user = await requireAuthenticatedUser(db, sessionToken);
+  return createTodo(db, user.id, input);
+}
+\`\`\`
+
+\`\`\`ts{path=src/app/api/[[...slugs]]/route.ts}
+import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
+import { createTodoAction, listTodosAction, loginAction } from "@/lib/server/actions";
+
+const app = new Elysia()
+  .use(cors())
+  .post("/login", async ({ body }) => loginAction(body as { email: string; password: string }))
+  .get("/todos", async ({ headers }) => listTodosAction(String(headers.authorization ?? "")))
+  .post("/todos", async ({ headers, body }) =>
+    createTodoAction(String(headers.authorization ?? ""), body as { title: string; description?: string }),
+  );
+
+export const GET = (request: Request) => app.handle(request);
+export const POST = (request: Request) => app.handle(request);
+\`\`\`
+
+\`\`\`ts{path=src/index.ts}
+export * from "./lib/server/actions.ts";
+export * from "./lib/server/auth.ts";
+export * from "./lib/server/db/index.ts";
+export * from "./lib/server/types.ts";
+\`\`\`
+`);
+
 export const examples = {
   "landing page": {
     prompt:
@@ -284,5 +478,10 @@ export interface TimerState {
 }
 \`\`\`
     `),
+  },
+  "deployed stack": {
+    prompt:
+      "Build a deployed stack template with shared auth and todo logic exposed through Next.js actions and an Elysia route adapter",
+    response: deployedStack,
   },
 };
