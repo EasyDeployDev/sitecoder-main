@@ -8,6 +8,7 @@ const SESSION_COOKIE = "sitecoder_session";
 const PUBLIC_PREFIXES = [
   "/login",
   "/register",
+  "/waitlist",
   "/share",
   "/api/og",
   "/favicon.ico",

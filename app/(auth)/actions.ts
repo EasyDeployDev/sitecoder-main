@@ -21,6 +21,10 @@ export async function signUpAction(
     return { error: result.error };
   }
 
+  if (result.waitlisted) {
+    redirect(`/waitlist?email=${encodeURIComponent(result.user.email)}`);
+  }
+
   redirect(redirectTo);
 }
 
@@ -34,6 +38,9 @@ export async function signInAction(
 
   const result = await signIn(email, password);
   if (!result.ok) {
+    if ("waitlisted" in result && result.waitlisted) {
+      redirect(`/waitlist?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+    }
     return { error: result.error };
   }
 

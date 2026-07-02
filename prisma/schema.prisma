@@ -37,20 +37,37 @@ enum ChatRole {
   VIEWER
 }
 
+// Waitlist-gated signup, modeled on the credential-account + session-token
+// pattern from nanodb-orm-examples' auth/sessions use-case: a User row (the
+// "credential account") is always created at signup time so the email is
+// reserved and the password is stored, but new accounts start PENDING and
+// cannot create a Session (i.e. cannot sign in) until an ADMIN/OWNER
+// approves them. This keeps the account + auth objects in one place while
+// adding an approve-before-access gate in front of session issuance.
+enum WaitlistStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
-  id           String     @id @default(nanoid(16))
-  email        String     @unique
+  id           String         @id @default(nanoid(16))
+  email        String         @unique
   passwordHash String
   name         String?
-  role         GlobalRole @default(MEMBER)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  role         GlobalRole     @default(MEMBER)
+  status       WaitlistStatus @default(PENDING)
+  reviewedAt   DateTime?
+  reviewedById String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   sessions     Session[]
   ownedChats   Chat[]        @relation("ChatOwner")
   chatMembers  ChatMember[]
 
   @@index([email])
+  @@index([status])
 }
 
 model Session {

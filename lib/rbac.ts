@@ -9,13 +9,20 @@
 
 export type GlobalRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
 export type ChatRole = "OWNER" | "EDITOR" | "VIEWER";
+export type WaitlistStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
   role: GlobalRole;
+  status: WaitlistStatus;
 };
+
+/** Can this user manage the waitlist (approve/reject pending accounts)? */
+export function canManageWaitlist(user: AuthUser | null | undefined): boolean {
+  return isWorkspaceAdmin(user);
+}
 
 export type ChatAccessContext = {
   ownerId: string | null;
