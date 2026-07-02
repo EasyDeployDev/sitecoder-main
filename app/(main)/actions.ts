@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/lib/prisma";
 import { invalidateMessageCache } from "@/lib/cached-db";
+import { nextMessagePosition } from "@/lib/messages";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { canEditChat, canViewAllRecords, ForbiddenError } from "@/lib/rbac";
@@ -10,13 +11,13 @@ export async function createMessage(
   chatId: string,
   text: string,
   role: "assistant" | "user",
-  files?: any[],
+  files?: { path: string; content: string }[],
 ) {
   const user = await requireUser();
   const prisma = getPrisma();
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
-    include: { messages: true },
+    select: { id: true, ownerId: true },
   });
   if (!chat) notFound();
 
@@ -34,19 +35,22 @@ export async function createMessage(
     }
   }
 
-  const maxPosition = chat.messages.reduce(
-    (max, message) => Math.max(max, message.position),
-    -1,
-  );
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error("Message cannot be empty.");
+  }
 
-  const newMessage = await prisma.message.create({
-    data: {
-      role,
-      content: text,
-      files: files ? JSON.parse(JSON.stringify(files)) : null,
-      position: maxPosition + 1,
-      chatId,
-    },
+  const newMessage = await prisma.$transaction(async (tx) => {
+    const position = await nextMessagePosition(tx, chatId);
+    return tx.message.create({
+      data: {
+        role,
+        content: trimmed,
+        files: files ? JSON.parse(JSON.stringify(files)) : null,
+        position,
+        chatId,
+      },
+    });
   });
 
   invalidateMessageCache(chatId, newMessage.id);

@@ -4,22 +4,44 @@ import {
   getMainCodingPrompt,
   screenshotToCodePrompt,
 } from "@/lib/prompts";
-import { DEFAULT_MODEL, resolveModel } from "@/lib/constants";
+import {
+  DEFAULT_MODEL,
+  modelSupportsVision,
+  resolveModel,
+} from "@/lib/constants";
 import { createAIClient } from "@/lib/ai-config";
-import { invalidateMessageCache } from "@/lib/cached-db";
+import { invalidateChatCache, invalidateMessageCache } from "@/lib/cached-db";
+import { deriveChatTitle } from "@/lib/messages";
 import { requireUser } from "@/lib/auth";
 import { UnauthorizedError } from "@/lib/rbac";
+
+const MAX_PROMPT_LENGTH = 8000;
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
-    const { prompt, model, screenshotUrl } = await request.json();
-    const resolvedModel = resolveModel(model);
+    const body = await request.json();
+    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    const model = typeof body.model === "string" ? body.model : DEFAULT_MODEL;
+    const screenshotUrl =
+      typeof body.screenshotUrl === "string" ? body.screenshotUrl : undefined;
 
+    if (!prompt) {
+      return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
+    }
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      return NextResponse.json(
+        { error: `Prompt must be under ${MAX_PROMPT_LENGTH} characters.` },
+        { status: 400 },
+      );
+    }
+
+    const resolvedModel = resolveModel(model);
     const prisma = getPrisma();
     const together = createAIClient("create-chat");
 
-    async function fetchTitle() {
+    let title = deriveChatTitle(prompt);
+    try {
       const responseForChatTitle = await together.chat.completions.create({
         model: DEFAULT_MODEL,
         messages: [
@@ -28,19 +50,18 @@ export async function POST(request: NextRequest) {
             content:
               "You are a chatbot helping the user create a simple app or script, and your current job is to create a succinct title, maximum 3-5 words, for the chat given their initial prompt. Please return only the title.",
           },
-          {
-            role: "user",
-            content: prompt,
-          },
+          { role: "user", content: prompt },
         ],
       });
-      return responseForChatTitle.choices[0].message?.content || prompt;
+      title =
+        responseForChatTitle.choices[0].message?.content?.trim() ||
+        deriveChatTitle(prompt);
+    } catch (err) {
+      console.warn("Title generation failed, using prompt fallback:", err);
     }
 
-    const title = await fetchTitle();
-
     let fullScreenshotDescription: string | undefined;
-    if (screenshotUrl) {
+    if (screenshotUrl && modelSupportsVision(resolvedModel)) {
       try {
         const screenshotResponse = await together.chat.completions.create({
           model: DEFAULT_MODEL,
@@ -51,17 +72,11 @@ export async function POST(request: NextRequest) {
               role: "user",
               content: [
                 { type: "text", text: screenshotToCodePrompt },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: screenshotUrl,
-                  },
-                },
+                { type: "image_url", image_url: { url: screenshotUrl } },
               ],
             },
           ],
         });
-
         fullScreenshotDescription =
           screenshotResponse.choices[0].message?.content ?? undefined;
       } catch (err) {
@@ -70,13 +85,9 @@ export async function POST(request: NextRequest) {
     }
 
     const userMessage = fullScreenshotDescription
-      ? prompt +
-        "RECREATE THIS APP AS CLOSELY AS POSSIBLE: " +
-        fullScreenshotDescription
+      ? `${prompt} RECREATE THIS APP AS CLOSELY AS POSSIBLE: ${fullScreenshotDescription}`
       : prompt;
 
-    // Create the chat and its seed messages in one write so we never leave
-    // behind an empty chat if downstream steps fail.
     const newChat = await prisma.chat.create({
       data: {
         model: resolvedModel,
@@ -98,9 +109,7 @@ export async function POST(request: NextRequest) {
           },
         },
       },
-      include: {
-        messages: true,
-      },
+      include: { messages: true },
     });
 
     const lastMessage = newChat.messages
@@ -108,6 +117,7 @@ export async function POST(request: NextRequest) {
       .at(-1);
     if (!lastMessage) throw new Error("No new message");
 
+    invalidateChatCache(newChat.id);
     invalidateMessageCache(newChat.id, lastMessage.id);
 
     return NextResponse.json({

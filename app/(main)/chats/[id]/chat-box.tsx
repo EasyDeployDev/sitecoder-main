@@ -5,6 +5,7 @@ import Spinner from "@/components/spinner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createMessage } from "../../actions";
+import { CODER_LABEL } from "@/lib/constants";
 import { type Chat } from "./page";
 
 export default function ChatBox({
@@ -21,6 +22,7 @@ export default function ChatBox({
   const disabled = isPending || isStreaming;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [prompt, setPrompt] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -38,21 +40,30 @@ export default function ChatBox({
     if (!prompt.trim() || disabled) return;
 
     startTransition(async () => {
-      const message = await createMessage(chat.id, prompt.trim(), "user");
-      const streamPromise = fetch("/api/get-next-completion-stream-promise", {
-        method: "POST",
-        body: JSON.stringify({
-          messageId: message.id,
-          model: chat.model,
-        }),
-      }).then((res) => {
-        if (!res.body) throw new Error("No body on response");
-        return res.body;
-      });
+      setError(null);
+      try {
+        const message = await createMessage(chat.id, prompt.trim(), "user");
+        const streamPromise = fetch("/api/get-next-completion-stream-promise", {
+          method: "POST",
+          body: JSON.stringify({
+            messageId: message.id,
+            model: chat.model,
+          }),
+        }).then((res) => {
+          if (!res.body) throw new Error("No body on response");
+          return res.body;
+        });
 
-      onNewStreamPromise(streamPromise);
-      setPrompt("");
-      router.refresh();
+        onNewStreamPromise(streamPromise);
+        setPrompt("");
+        router.refresh();
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to send message. Try again.",
+        );
+      }
     });
   };
 
@@ -91,9 +102,11 @@ export default function ChatBox({
         </button>
       </form>
 
-      <div className="mt-2 flex items-center justify-between px-1 text-xs text-slate-500">
-        <span>Enter to send, Shift+Enter for new line</span>
-        <span className="font-medium text-slate-400">Kimi K2.7 Code</span>
+      <div className="mt-2 flex items-center justify-between px-1 text-xs">
+        <span className={error ? "text-rose-400" : "text-slate-500"}>
+          {error ?? "Enter to send, Shift+Enter for new line"}
+        </span>
+        <span className="font-medium text-slate-400">{CODER_LABEL}</span>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ import {
 
 import { Context } from "./providers";
 import { useS3Upload } from "next-s3-upload";
-import { DEFAULT_MODEL, SUGGESTED_PROMPTS } from "@/lib/constants";
+import { DEFAULT_MODEL, CODER_LABEL, SUGGESTED_PROMPTS } from "@/lib/constants";
 
 export default function HomeForm() {
   const { setStreamPromise } = use(Context);
@@ -36,6 +36,7 @@ export default function HomeForm() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -56,9 +57,16 @@ export default function HomeForm() {
     if (!file) return;
     if (prompt.length === 0) setPrompt("Build this");
     setScreenshotLoading(true);
-    const { url } = await uploadToS3(file);
-    setScreenshotUrl(url);
-    setScreenshotLoading(false);
+    setError(null);
+    try {
+      const { url } = await uploadToS3(file);
+      setScreenshotUrl(url);
+    } catch {
+      setError("Screenshot upload failed. Try again or continue without it.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } finally {
+      setScreenshotLoading(false);
+    }
   };
 
   const submit = () => {
@@ -85,40 +93,56 @@ export default function HomeForm() {
             className="relative mt-8 w-full max-w-2xl"
             action={async (formData) => {
               startTransition(async () => {
-                const { prompt, model } = Object.fromEntries(formData);
+                setError(null);
+                try {
+                  const { prompt, model } = Object.fromEntries(formData);
 
-                assert.ok(typeof prompt === "string");
-                assert.ok(typeof model === "string");
+                  assert.ok(typeof prompt === "string");
+                  assert.ok(typeof model === "string");
 
-                const response = await fetch("/api/create-chat", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    prompt,
-                    model,
-                    screenshotUrl,
-                  }),
-                });
-
-                if (!response.ok) throw new Error("Failed to create chat");
-
-                const { chatId, lastMessageId } = await response.json();
-
-                const streamPromise = fetch(
-                  "/api/get-next-completion-stream-promise",
-                  {
+                  const response = await fetch("/api/create-chat", {
                     method: "POST",
-                    body: JSON.stringify({ messageId: lastMessageId, model }),
-                  },
-                ).then((res) => {
-                  if (!res.body) throw new Error("No body on response");
-                  return res.body;
-                });
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      prompt,
+                      model,
+                      screenshotUrl,
+                    }),
+                  });
 
-                startTransition(() => {
-                  setStreamPromise(streamPromise);
-                  router.push(`/chats/${chatId}`);
-                });
+                  const payload = await response.json().catch(() => ({}));
+                  if (!response.ok) {
+                    throw new Error(
+                      typeof payload.error === "string"
+                        ? payload.error
+                        : "Failed to create chat",
+                    );
+                  }
+
+                  const { chatId, lastMessageId } = payload;
+
+                  const streamPromise = fetch(
+                    "/api/get-next-completion-stream-promise",
+                    {
+                      method: "POST",
+                      body: JSON.stringify({ messageId: lastMessageId, model }),
+                    },
+                  ).then((res) => {
+                    if (!res.body) throw new Error("No body on response");
+                    return res.body;
+                  });
+
+                  startTransition(() => {
+                    setStreamPromise(streamPromise);
+                    router.push(`/chats/${chatId}`);
+                  });
+                } catch (err) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Something went wrong. Please try again.",
+                  );
+                }
               });
             }}
           >
@@ -213,7 +237,7 @@ export default function HomeForm() {
 
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/60 px-2 py-1 text-xs font-medium text-slate-400">
                       <LightningBoltIcon className="size-3" />
-                      Coder
+                      {CODER_LABEL}
                     </span>
 
                     <div className="hidden h-4 w-px bg-slate-700 sm:block" />
@@ -250,6 +274,12 @@ export default function HomeForm() {
               </div>
             </Fieldset>
           </form>
+
+          {error && (
+            <p className="mt-3 w-full max-w-2xl rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-center text-sm text-rose-300">
+              {error}
+            </p>
+          )}
 
           <div className="mt-4 w-full max-w-2xl">
             <p className="mb-2 text-center text-xs font-medium uppercase tracking-wider text-slate-500">

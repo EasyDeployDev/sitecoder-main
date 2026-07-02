@@ -5,6 +5,19 @@ export function resolveModel(model: string): string {
 }
 
 export const DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b:free";
+export const CODER_LABEL = "Coder";
+
+/** Text-only coder model — skip vision API calls for screenshot uploads. */
+export function modelSupportsVision(model: string): boolean {
+  const id = model.toLowerCase();
+  return (
+    id.includes("vision") ||
+    id.includes("gpt-4o") ||
+    id.includes("claude-3") ||
+    id.includes("kimi") ||
+    id.includes("llava")
+  );
+}
 
 export const SUGGESTED_PROMPTS = [
   {
