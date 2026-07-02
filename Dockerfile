@@ -2,23 +2,56 @@ FROM node:20-slim AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
+# ---- dependencies ----
+FROM base AS deps
+
 COPY package.json pnpm-lock.yaml .npmrc ./
 COPY prisma ./prisma
 
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm install --frozen-lockfile --ignore-scripts \
+    && pnpm prisma generate
+
+# ---- builder ----
+FROM deps AS builder
 
 COPY . .
 
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm prisma generate && pnpm next build
+RUN pnpm next build
+
+# ---- runner ----
+FROM base AS runner
+
+RUN groupadd --gid 1001 nodejs \
+    && useradd --uid 1001 --gid nodejs --shell /bin/false nextjs
+
+WORKDIR /app
+
+# Standalone output is not enabled; copy the full app and node_modules.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+USER nextjs
 
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD node --eval "require('http').get('http://localhost:3000/api/og?healthcheck=1', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm start"]

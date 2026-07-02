@@ -1,16 +1,42 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { signIn, signUp, destroySession } from "@/lib/auth";
+import { authRateLimit } from "@/lib/rate-limit";
 
 export type AuthFormState = {
   error?: string;
 } | null;
 
+async function getRateLimitKey(): Promise<string> {
+  // Prefer the forwarded IP so the limit follows the user behind a
+  // load balancer / proxy. Falls back to a generic key if headers are
+  // missing, which still bounds total abuse from an anonymous source.
+  const headerStore = await headers();
+  const forwarded = headerStore.get("x-forwarded-for");
+  const realIp = headerStore.get("x-real-ip");
+  const ip = forwarded?.split(",")[0]?.trim() || realIp || "anonymous";
+  return `auth:${ip}`;
+}
+
+async function checkRateLimit(): Promise<AuthFormState> {
+  const limit = authRateLimit(await getRateLimitKey());
+  if (!limit.ok) {
+    return {
+      error: `Too many attempts. Please try again in ${limit.retryAfterSeconds}s.`,
+    };
+  }
+  return null;
+}
+
 export async function signUpAction(
   _prev: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
+  const rateLimitError = await checkRateLimit();
+  if (rateLimitError) return rateLimitError;
+
   const email = String(formData.get("email") || "");
   const password = String(formData.get("password") || "");
   const name = String(formData.get("name") || "");
@@ -32,6 +58,9 @@ export async function signInAction(
   _prev: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
+  const rateLimitError = await checkRateLimit();
+  if (rateLimitError) return rateLimitError;
+
   const email = String(formData.get("email") || "");
   const password = String(formData.get("password") || "");
   const redirectTo = String(formData.get("redirectTo") || "/chats");

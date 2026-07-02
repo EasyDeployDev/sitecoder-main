@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const SESSION_COOKIE = "sitecoder_session";
+const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === "production"
+    ? "__Host-sitecoder_session"
+    : SESSION_COOKIE;
 
 // Paths that never require a session. Everything else (including "/",
 // "/chats", and the chat-creation/completion APIs) requires a signed-in
@@ -47,7 +51,7 @@ export function middleware(request: NextRequest) {
 
   if (isPublicPath(pathname)) return NextResponse.next();
 
-  const hasSession = request.cookies.has(SESSION_COOKIE);
+  const hasSession = request.cookies.has(SESSION_COOKIE_NAME);
   if (hasSession) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {

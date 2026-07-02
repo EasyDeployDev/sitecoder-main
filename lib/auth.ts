@@ -2,12 +2,26 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { randomBytes, createHash } from "crypto";
 import { getPrisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import type { AuthUser, GlobalRole, WaitlistStatus } from "@/lib/rbac";
 
 const SESSION_COOKIE = "sitecoder_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+// Cookie prefixes harden against session fixation / cookie tossing:
+// __Host- requires Secure, Path=/, and no Domain attribute.
+const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-sitecoder_session" : SESSION_COOKIE;
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function generateSessionToken(): string {
+  return randomBytes(32).toString("hex");
+}
 
 function toAuthUser(row: {
   id: string;
@@ -27,15 +41,19 @@ function toAuthUser(row: {
 
 export async function createSession(userId: string): Promise<string> {
   const prisma = getPrisma();
+  const token = generateSessionToken();
+  const tokenHash = hashToken(token);
+
   const session = await prisma.session.create({
     data: {
+      id: tokenHash,
       userId,
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     },
   });
 
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, session.id, {
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -48,25 +66,25 @@ export async function createSession(userId: string): Promise<string> {
 
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-  if (sessionId) {
+  if (token) {
     const prisma = getPrisma();
-    await prisma.session.delete({ where: { id: sessionId } }).catch(() => {});
+    await prisma.session.delete({ where: { id: hashToken(token) } }).catch(() => {});
   }
 
-  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(SESSION_COOKIE_NAME);
 }
 
 // cache() dedupes within a single request/render pass.
 export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!sessionId) return null;
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return null;
 
   const prisma = getPrisma();
   const session = await prisma.session.findUnique({
-    where: { id: sessionId },
+    where: { id: hashToken(token) },
     include: { user: true },
   });
 
@@ -93,6 +111,20 @@ export async function requireUser(): Promise<AuthUser> {
   return user;
 }
 
+export async function deleteExpiredSessions(): Promise<number> {
+  const prisma = getPrisma();
+  const { count } = await prisma.session.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
+  });
+  return count;
+}
+
+export async function deleteUserSessions(userId: string): Promise<number> {
+  const prisma = getPrisma();
+  const { count } = await prisma.session.deleteMany({ where: { userId } });
+  return count;
+}
+
 export type SignUpResult =
   | { ok: true; user: AuthUser; waitlisted: boolean }
   | { ok: false; error: string };
@@ -114,8 +146,10 @@ export async function signUp(
   if (!normalizedEmail || !normalizedEmail.includes("@")) {
     return { ok: false, error: "Enter a valid email address." };
   }
-  if (password.length < 8) {
-    return { ok: false, error: "Password must be at least 8 characters." };
+
+  const passwordCheck = validatePasswordStrength(password);
+  if (!passwordCheck.ok) {
+    return { ok: false, error: passwordCheck.error };
   }
 
   const prisma = getPrisma();
@@ -193,4 +227,23 @@ export async function signIn(
 
   await createSession(user.id);
   return { ok: true, user: toAuthUser(user) };
+}
+
+function validatePasswordStrength(password: string): { ok: true } | { ok: false; error: string } {
+  if (password.length < 10) {
+    return { ok: false, error: "Password must be at least 10 characters." };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { ok: false, error: "Password must contain at least one uppercase letter." };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { ok: false, error: "Password must contain at least one lowercase letter." };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { ok: false, error: "Password must contain at least one number." };
+  };
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { ok: false, error: "Password must contain at least one special character." };
+  }
+  return { ok: true };
 }
