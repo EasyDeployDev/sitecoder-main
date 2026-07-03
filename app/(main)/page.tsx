@@ -1,7 +1,10 @@
 import Header from "@/components/header";
+import { getDefaultModel } from "@/lib/constants";
 import HomeForm from "./home-form";
 
 export default function Home() {
+  const model = getDefaultModel();
+
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-[#0B0F19]">
       {/* Subtle background gradient — no halo image */}
@@ -15,7 +18,7 @@ export default function Home() {
 
       <div className="isolate flex min-h-dvh flex-col">
         <Header />
-        <HomeForm />
+        <HomeForm model={model} />
       </div>
     </div>
   );

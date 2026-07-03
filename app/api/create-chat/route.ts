@@ -5,7 +5,7 @@ import {
   screenshotToCodePrompt,
 } from "@/lib/prompts";
 import {
-  DEFAULT_MODEL,
+  getDefaultModel,
   modelSupportsVision,
   resolveModel,
 } from "@/lib/constants";
@@ -22,9 +22,10 @@ export async function POST(request: NextRequest) {
     const user = await requireUser();
     const body = await request.json();
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const model = typeof body.model === "string" ? body.model : DEFAULT_MODEL;
     const screenshotUrl =
       typeof body.screenshotUrl === "string" ? body.screenshotUrl : undefined;
+    const defaultModel = getDefaultModel();
+    const resolvedModel = resolveModel(defaultModel);
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
@@ -36,14 +37,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resolvedModel = resolveModel(model);
     const prisma = getPrisma();
     const together = createAIClient("create-chat");
 
     let title = deriveChatTitle(prompt);
     try {
       const responseForChatTitle = await together.chat.completions.create({
-        model: DEFAULT_MODEL,
+        model: defaultModel,
         messages: [
           {
             role: "system",
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (screenshotUrl && modelSupportsVision(resolvedModel)) {
       try {
         const screenshotResponse = await together.chat.completions.create({
-          model: DEFAULT_MODEL,
+          model: defaultModel,
           temperature: 0.4,
           max_tokens: 1000,
           messages: [

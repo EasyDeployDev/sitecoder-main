@@ -4,7 +4,14 @@ export function resolveModel(model: string): string {
   return MODEL_ALIASES[model] ?? model;
 }
 
-export const DEFAULT_MODEL = "cohere/north-mini-code:free";
+export const DEFAULT_MODEL_FALLBACK = "cohere/north-mini-code:free";
+
+/** Server-side default coder model (set DEFAULT_MODEL in env). */
+export function getDefaultModel(): string {
+  const fromEnv = process.env.DEFAULT_MODEL?.trim();
+  return fromEnv || DEFAULT_MODEL_FALLBACK;
+}
+
 export const CODER_LABEL = "Coder";
 
 /** Text-only coder model — skip vision API calls for screenshot uploads. */

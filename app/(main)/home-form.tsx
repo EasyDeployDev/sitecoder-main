@@ -20,14 +20,13 @@ import {
 
 import { Context } from "./providers";
 import { useS3Upload } from "next-s3-upload";
-import { DEFAULT_MODEL, CODER_LABEL, SUGGESTED_PROMPTS } from "@/lib/constants";
+import { CODER_LABEL, SUGGESTED_PROMPTS } from "@/lib/constants";
 
-export default function HomeForm() {
+export default function HomeForm({ model }: { model: string }) {
   const { setStreamPromise } = use(Context);
   const router = useRouter();
 
   const [prompt, setPrompt] = useState("");
-  const model = DEFAULT_MODEL;
   const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(
     undefined,
   );
