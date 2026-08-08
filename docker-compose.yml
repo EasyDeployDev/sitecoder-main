@@ -1,0 +1,55 @@
+# sitecoder UI — single external surface (:3000)
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    tag: "{{.Name}}"
+
+services:
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        REVISION: ${REVISION:-local}
+    image: sitecoder-ui:zerops
+    container_name: sitecoder-ui
+    # tini is ENTRYPOINT in Dockerfile (Zerops pack path) — do not set init: true here
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    tmpfs:
+      - /tmp
+    env_file:
+      - path: .env.local
+        required: false
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: ${DATABASE_URL:-}
+      AI_GATEWAY_BASE_URL: ${AI_GATEWAY_BASE_URL:-}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--eval",
+          "require('http').get('http://127.0.0.1:3000/login',(r)=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *default-logging
+    labels:
+      com.sitecoder.service: ui
+      com.sitecoder.version: ${VERSION:-dev}

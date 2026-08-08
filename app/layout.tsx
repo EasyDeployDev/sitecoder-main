@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import PlausibleProvider from "next-plausible";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 let title = "Sitecoder – AI Code Generator";
 let description = "Generate your next app with AI";
-let url = "https://sitecoder-main-moidev-158cafc1.koyeb.app";
+let url =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://appdev-28a4-3000.prg1.zerops.app";
 let ogimage = `${url}/og-image.png`;
 let sitename = "sitecoder";
 
@@ -38,12 +41,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
-      <head>
-        <PlausibleProvider domain={url.replace(/^https?:\/\//, "")} />
-      </head>
-
-      {children}
-    </html>
+    <ClerkProvider>
+      <html lang="en" className="h-full">
+        <head>
+          <PlausibleProvider domain={url.replace(/^https?:\/\//, "")} />
+        </head>
+        {children}
+      </html>
+    </ClerkProvider>
   );
 }

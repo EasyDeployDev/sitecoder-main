@@ -1,23 +1,46 @@
+# VCS / IDE / OS
 .git
 .gitignore
 .github
+.vscode
+.idea
+.DS_Store
+*.code-workspace
+
+# Dependencies & build artifacts
 node_modules
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-pnpm-debug.log
 .next
 out
 coverage
+dist
+build
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Secrets — keep example only
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+.example.env
+
+# Docs / meta (not needed in image build context)
 *.md
-!.npmrc
+LICENSE
+CONTRIBUTING.md
+architecture.md
+
+# Deploy pack output / local tooling
+zerops-ui-deploy
+zerops.yml
+scripts
 Dockerfile
 .dockerignore
 .editorconfig
-.vscode
-.idea
-*.log
-.DS_Store
+.prettierrc
+.npmrc.bak

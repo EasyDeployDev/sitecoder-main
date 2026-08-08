@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   LayoutDashboard,
   ShieldCheck,
-  UserCheck,
 } from "lucide-react";
 
 type NavItem = {
@@ -35,12 +34,6 @@ export default function AdminShell({
 
   const nav: NavItem[] = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
-    {
-      href: "/admin/waitlist",
-      label: "Waitlist",
-      icon: UserCheck,
-      badge: pendingCount,
-    },
   ];
 
   return (

@@ -20,6 +20,16 @@ const MAX_PROMPT_LENGTH = 8000;
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
+    if (
+      !user.hasAccessPass &&
+      user.role !== "OWNER" &&
+      user.role !== "ADMIN"
+    ) {
+      return NextResponse.json(
+        { error: "Polar Access Pass required.", code: "ACCESS_PASS_REQUIRED" },
+        { status: 402 },
+      );
+    }
     const body = await request.json();
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const screenshotUrl =

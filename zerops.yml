@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://api.app-prg1.zerops.io/api/rest/public/settings/zerops-yml-json-schema.json
+# Sitecoder UI → Zerops showcase-recipe-remote (A7gReOyiQkAbgLqR9rEfNg)
+# Target: appdev (alpine/bun@1.2.2) — project UI layer.
+#
+# Local build + deploy (remote build containers fail on this LIGHT project):
+#   docker build -t sitecoder-ui:zerops .
+#   ./scripts/zerops-pack.sh
+#   # IMPORTANT: deploy FROM zerops-ui-deploy so prisma/ + server.js are at package root
+#   npx @zerops/zcli service deploy appdev -P A7gReOyiQkAbgLqR9rEfNg --setup appdev \
+#     --working-dir zerops-ui-deploy --path-to-file-or-dir . -v
+#
+# Public URL: https://appdev-28a4-3000.prg1.zerops.app
+
+zerops:
+  - setup: appdev
+    build:
+      deployFiles:
+        - ./~
+    deploy:
+      readinessCheck:
+        httpGet:
+          port: 3000
+          path: /login
+        failureTimeout: 300s
+        retryPeriod: 10s
+    run:
+      base: bun@1.2.2
+      ports:
+        - port: 3000
+          httpSupport: true
+      envVariables:
+        NODE_ENV: production
+        HOME: /home/zerops
+        HOSTNAME: "0.0.0.0"
+        PORT: "3000"
+        NEXT_TELEMETRY_DISABLED: "1"
+        APP_ROLE: main
+        NEXT_PUBLIC_SITE_URL: https://preview.useprivy.app
+        # Shared Postgres has other apps' tables (e.g. uploads). Use an isolated schema.
+        DATABASE_URL: ${db_connectionString}/db?schema=sitecoder
+        AI_GATEWAY_BASE_URL: https://api.kilo.ai/api/gateway
+        AI_GATEWAY_API_KEY: ${bun_KILO_API_KEY}
+        DEFAULT_MODEL: gpt-oss-120b
+        CONTROL_PLANE_URL: http://bun:3004
+        NEXT_PUBLIC_CONTROL_PLANE_URL: https://bun-28a4-3004.prg1.zerops.app
+        # Clerk + Polar (set secrets in Zerops project env — do not commit)
+        NEXT_PUBLIC_CLERK_SIGN_IN_URL: /login
+        NEXT_PUBLIC_CLERK_SIGN_UP_URL: /register
+        NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL: /chats
+        NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL: /access
+        POLAR_PRODUCT_ID: cff6aec9-5a46-44bc-a62e-f021a3fb5567
+        NEXT_PUBLIC_POLAR_PRODUCT_ID: cff6aec9-5a46-44bc-a62e-f021a3fb5567
+        POLAR_SERVER: production
+      # Create isolated schema, push Sitecoder tables, then boot.
+      start: sh -c 'printf "CREATE SCHEMA IF NOT EXISTS sitecoder;\n" | bunx prisma@6.5.0 db execute --stdin --schema=prisma/schema.prisma || true; bunx prisma@6.5.0 db push --schema=prisma/schema.prisma --skip-generate || true; exec bun server.js'
+      healthCheck:
+        httpGet:
+          port: 3000
+          path: /login
+        failureTimeout: 90s
+        execPeriod: 20s

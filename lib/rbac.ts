@@ -17,6 +17,7 @@ export type AuthUser = {
   name: string | null;
   role: GlobalRole;
   status: WaitlistStatus;
+  hasAccessPass?: boolean;
 };
 
 /** Can this user manage the waitlist (approve/reject pending accounts)? */

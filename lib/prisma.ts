@@ -16,9 +16,19 @@ export function createPrismaClient(): PrismaClient {
     ) as unknown as PrismaClient;
   }
 
-  const neon = new Pool({ connectionString: databaseUrl });
-  const adapter = new PrismaNeon(neon);
-  return new PrismaClient({ adapter });
+  // Neon serverless driver is only for neon.tech (or explicit opt-in).
+  // Standard Postgres (Zerops, local, etc.) uses the default Prisma engine.
+  const useNeonAdapter =
+    process.env.USE_NEON_ADAPTER === "1" ||
+    Boolean(databaseUrl?.includes("neon.tech"));
+
+  if (useNeonAdapter) {
+    const neon = new Pool({ connectionString: databaseUrl });
+    const adapter = new PrismaNeon(neon);
+    return new PrismaClient({ adapter });
+  }
+
+  return new PrismaClient({ datasourceUrl: databaseUrl });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

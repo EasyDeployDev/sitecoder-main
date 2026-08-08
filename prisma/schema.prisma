@@ -1,6 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -37,13 +38,8 @@ enum ChatRole {
   VIEWER
 }
 
-// Waitlist-gated signup, modeled on the credential-account + session-token
-// pattern from nanodb-orm-examples' auth/sessions use-case: a User row (the
-// "credential account") is always created at signup time so the email is
-// reserved and the password is stored, but new accounts start PENDING and
-// cannot create a Session (i.e. cannot sign in) until an ADMIN/OWNER
-// approves them. This keeps the account + auth objects in one place while
-// adding an approve-before-access gate in front of session issuance.
+// Credential + session auth (Clerk-backed). Waitlist skipped — new users are
+// APPROVED immediately. App access is gated by Polar Access Pass instead.
 enum WaitlistStatus {
   PENDING
   APPROVED
@@ -51,23 +47,27 @@ enum WaitlistStatus {
 }
 
 model User {
-  id           String         @id @default(nanoid(16))
-  email        String         @unique
-  passwordHash String
-  name         String?
-  role         GlobalRole     @default(MEMBER)
-  status       WaitlistStatus @default(PENDING)
-  reviewedAt   DateTime?
-  reviewedById String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id              String         @id @default(nanoid(16))
+  email           String         @unique
+  passwordHash    String?
+  clerkId         String?        @unique
+  name            String?
+  role            GlobalRole     @default(MEMBER)
+  status          WaitlistStatus @default(APPROVED)
+  hasAccessPass   Boolean        @default(false)
+  polarCustomerId String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  sessions     Session[]
-  ownedChats   Chat[]        @relation("ChatOwner")
-  chatMembers  ChatMember[]
+  sessions    Session[]
+  ownedChats  Chat[]      @relation("ChatOwner")
+  chatMembers ChatMember[]
 
   @@index([email])
   @@index([status])
+  @@index([clerkId])
 }
 
 model Session {

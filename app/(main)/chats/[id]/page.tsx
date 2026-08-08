@@ -46,6 +46,13 @@ export default async function Page({
 
   const user = await getCurrentUser();
   if (!user) redirect(`/login?redirectTo=/chats/${id}`);
+  if (
+    !user.hasAccessPass &&
+    user.role !== "OWNER" &&
+    user.role !== "ADMIN"
+  ) {
+    redirect("/access");
+  }
 
   const memberMap = await getCachedChatMembersFor([id], user.id);
   const allowed = canViewChat(user, {

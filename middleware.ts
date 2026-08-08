@@ -1,67 +1,54 @@
-import { NextRequest, NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const SESSION_COOKIE = "sitecoder_session";
-const SESSION_COOKIE_NAME =
-  process.env.NODE_ENV === "production"
-    ? "__Host-sitecoder_session"
-    : SESSION_COOKIE;
-
-// Paths that never require a session. Everything else (including "/",
-// "/chats", and the chat-creation/completion APIs) requires a signed-in
-// user. Shared links stay public by design.
-const PUBLIC_PREFIXES = [
-  "/login",
-  "/register",
-  "/waitlist",
-  "/share",
-  "/api/og",
+const isPublicRoute = createRouteMatcher([
+  "/login(.*)",
+  "/register(.*)",
+  "/access(.*)",
+  "/share(.*)",
+  "/checkout(.*)",
+  "/api/webhook(.*)",
+  "/api/og(.*)",
   "/favicon.ico",
   "/robots.txt",
   "/icon.png",
   "/og-image.png",
   "/logo.svg",
-  "/Aeonik",
-];
+  "/Aeonik(.*)",
+]);
 
-function isPublicPath(pathname: string): boolean {
-  if (pathname.startsWith("/_next")) return true;
-  return PUBLIC_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-}
-
-// Optimistic, edge-safe gate: just checks for the presence of a session
-// cookie so unauthenticated users are redirected before any page renders.
-// The real session validation (expiry, user lookup, RBAC) happens
-// server-side in lib/auth.ts + lib/rbac.ts for every data access.
-// APP_ROLE lets the exact same codebase/image be deployed as two Koyeb
-// services under one app: the default "main" service (landing + chat
-// generation) handles route "/", while a second "workspace" service
-// handles route "/chats" as its own sub app (independent container,
-// scaling, and deploys, sharing the same database). See koyeb service
-// "sitecoder-workspace".
 const APP_ROLE = process.env.APP_ROLE === "workspace" ? "workspace" : "main";
 
-export function middleware(request: NextRequest) {
+export default clerkMiddleware(async (auth, request) => {
   const { pathname } = request.nextUrl;
 
   if (APP_ROLE === "workspace" && pathname === "/") {
     return NextResponse.redirect(new URL("/chats", request.url));
   }
 
-  if (isPublicPath(pathname)) return NextResponse.next();
-
-  const hasSession = request.cookies.has(SESSION_COOKIE_NAME);
-  if (hasSession) return NextResponse.next();
-
-  if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Waitlist retired — send old links home.
+  if (pathname === "/waitlist" || pathname.startsWith("/waitlist/")) {
+    return NextResponse.redirect(new URL("/access", request.url));
   }
 
-  const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("redirectTo", pathname);
-  return NextResponse.redirect(loginUrl);
-}
+  if (isPublicRoute(request)) {
+    return NextResponse.next();
+  }
+
+  // Landing stays reachable; chat/API require Clerk.
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
+  await auth.protect({
+    unauthenticatedUrl: new URL(
+      `/login?redirectTo=${encodeURIComponent(pathname)}`,
+      request.url,
+    ).toString(),
+  });
+
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [

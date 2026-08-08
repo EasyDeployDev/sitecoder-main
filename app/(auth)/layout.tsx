@@ -12,7 +12,7 @@ export default function AuthLayout({
             "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59, 130, 246, 0.18), transparent), radial-gradient(ellipse 60% 40% at 50% 110%, rgba(139, 92, 246, 0.10), transparent)",
         }}
       />
-      <div className="isolate w-full max-w-sm">{children}</div>
+      <div className="isolate w-full max-w-md">{children}</div>
     </body>
   );
 }

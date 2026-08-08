@@ -1,16 +1,16 @@
 import Header from "@/components/header";
 import CrmDashboard from "@/components/crm/crm-dashboard";
 import { listPropertyDefs, listRecords } from "@/lib/crm";
-import { getCurrentUser } from "@/lib/auth";
+import { requireAccessOrRedirect } from "@/lib/access";
 import { canManageWorkspace } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChatsDashboardPage() {
-  const [records, propertyDefs, user] = await Promise.all([
+  const user = await requireAccessOrRedirect();
+  const [records, propertyDefs] = await Promise.all([
     listRecords(),
     listPropertyDefs(),
-    getCurrentUser(),
   ]);
 
   return (
