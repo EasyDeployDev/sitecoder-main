@@ -18,7 +18,7 @@ async function mirrorAccess(hasAccess: boolean) {
   }
 }
 
-export async function refreshPrivyAccessAction() {
+export async function refreshPrivyAccessAction(): Promise<void> {
   const { userId } = await auth();
   if (!userId) redirect("/login?redirectTo=/access");
 
@@ -28,15 +28,13 @@ export async function refreshPrivyAccessAction() {
     );
     await mirrorAccess(synced.hasAccess);
     if (synced.hasAccess) redirect("/chats");
-    return synced;
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : "Billing sync failed",
-    };
+  } catch {
+    // Stay on /access; page will show billing error on reload if needed.
   }
+  redirect("/access");
 }
 
-export async function choosePrivyPlanAction(formData: FormData) {
+export async function choosePrivyPlanAction(formData: FormData): Promise<void> {
   const { userId } = await auth();
   if (!userId) redirect("/login?redirectTo=/access");
 
@@ -52,10 +50,8 @@ export async function choosePrivyPlanAction(formData: FormData) {
     if (result.url) {
       redirect(result.url);
     }
-    return { error: "Checkout did not return a URL" };
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : "Checkout failed",
-    };
+  } catch {
+    // Fall through to access page.
   }
+  redirect("/access?error=checkout");
 }

@@ -16,13 +16,13 @@ import {
 export default async function AccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkout?: string }>;
+  searchParams: Promise<{ checkout?: string; error?: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/login?redirectTo=/access");
 
   let user = await getCurrentUser();
-  const { checkout } = await searchParams;
+  const { checkout, error } = await searchParams;
 
   let billingError: string | null = null;
   let billing = null as Awaited<ReturnType<typeof loadPrivyBillingStatus>> | null;
@@ -76,8 +76,10 @@ export default async function AccessPage({
             Payment received — confirming Access Pass…
           </p>
         )}
-        {billingError && (
-          <p className="mt-3 text-xs text-rose-300/90">{billingError}</p>
+        {(billingError || error === "checkout") && (
+          <p className="mt-3 text-xs text-rose-300/90">
+            {billingError || "Checkout failed. Try again or open Privy billing."}
+          </p>
         )}
       </div>
 
