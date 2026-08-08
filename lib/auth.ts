@@ -112,11 +112,23 @@ export async function requireAccessPass(): Promise<
   AuthUser & { hasAccessPass: boolean }
 > {
   const user = await requireUser();
-  if (!user.hasAccessPass && !isAccessBypassed(user)) {
-    const { ForbiddenError } = await import("@/lib/rbac");
-    throw new ForbiddenError("Polar Access Pass required.");
+  if (isAccessBypassed(user)) return user;
+  if (user.hasAccessPass) return user;
+
+  // Fall back to Privy Elysia billing (preview.useprivy.app).
+  try {
+    const { loadPrivyBillingStatus } = await import("@/lib/privy-billing");
+    const billing = await loadPrivyBillingStatus();
+    if (billing.hasAccess) {
+      await grantAccessPass(user.id);
+      return { ...user, hasAccessPass: true };
+    }
+  } catch {
+    // Privy unreachable — keep local gate.
   }
-  return user;
+
+  const { ForbiddenError } = await import("@/lib/rbac");
+  throw new ForbiddenError("Privy Access Pass required.");
 }
 
 function isAccessBypassed(

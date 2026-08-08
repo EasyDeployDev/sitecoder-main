@@ -1,7 +1,9 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
-import { getPolar, POLAR_PRODUCT_ID, siteUrl } from "@/lib/polar";
+import { isPlanId, type PlanId } from "@/lib/billing-shared";
+import { startPrivyCheckout } from "@/lib/privy-billing";
 
+/** Proxy Access Pass checkout to Privy Elysia on preview.useprivy.app */
 export async function GET(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
@@ -10,33 +12,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const productsParam =
-    request.nextUrl.searchParams.get("products") || POLAR_PRODUCT_ID;
-  const products = productsParam.split(",").map((p) => p.trim()).filter(Boolean);
+  const planParam = request.nextUrl.searchParams.get("plan");
+  const plan: PlanId = isPlanId(planParam) ? planParam : "pro";
 
-  const clerkUser = await currentUser();
-  const email =
-    clerkUser?.primaryEmailAddress?.emailAddress ||
-    clerkUser?.emailAddresses[0]?.emailAddress;
-
-  const polar = getPolar();
-  const checkout = await polar.checkouts.create({
-    products,
-    successUrl: siteUrl("/access?checkout_id={CHECKOUT_ID}"),
-    returnUrl: siteUrl("/access"),
-    externalCustomerId: userId,
-    customerEmail: email || undefined,
-    metadata: {
-      clerkUserId: userId,
-    },
-  });
-
-  if (!checkout.url) {
-    return NextResponse.json(
-      { error: "Failed to create Polar checkout" },
-      { status: 500 },
-    );
+  try {
+    const result = await startPrivyCheckout({ plan });
+    if (result.activated) {
+      return NextResponse.redirect(new URL("/chats", request.url));
+    }
+    if (result.url) {
+      return NextResponse.redirect(result.url);
+    }
+  } catch (error) {
+    console.error("[checkout→privy]", error);
   }
 
-  return NextResponse.redirect(checkout.url);
+  return NextResponse.redirect(new URL("/access", request.url));
 }
