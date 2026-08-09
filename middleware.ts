@@ -9,6 +9,8 @@ const isPublicRoute = createRouteMatcher([
   "/checkout(.*)",
   "/api/webhook(.*)",
   "/api/og(.*)",
+  // Clerk browser SDK proxy — must not hit auth.protect or SignIn never mounts.
+  "/__clerk(.*)",
   "/favicon.ico",
   "/robots.txt",
   "/icon.png",
