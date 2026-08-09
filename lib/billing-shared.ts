@@ -47,9 +47,9 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     priceLabel: "$8",
     intervalLabel: "seat / month",
     blurb: "Scale at $8 per seat",
-    description: "Team — $8/seat/mo, 2 seats minimum. 1-week free trial.",
+    description: "Team — $8/seat/mo, 2 seats minimum. Billed immediately.",
     isFree: false,
-    trialLabel: "1-week free trial",
+    trialLabel: "Billed immediately",
   },
 };
 
