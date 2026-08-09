@@ -9,8 +9,6 @@ const isPublicRoute = createRouteMatcher([
   "/checkout(.*)",
   "/api/webhook(.*)",
   "/api/og(.*)",
-  // Clerk browser SDK proxy — must not hit auth.protect or SignIn never mounts.
-  "/__clerk(.*)",
   "/favicon.ico",
   "/robots.txt",
   "/icon.png",
@@ -21,36 +19,40 @@ const isPublicRoute = createRouteMatcher([
 
 const APP_ROLE = process.env.APP_ROLE === "workspace" ? "workspace" : "main";
 
-export default clerkMiddleware(async (auth, request) => {
-  const { pathname } = request.nextUrl;
+export default clerkMiddleware(
+  async (auth, request) => {
+    const { pathname } = request.nextUrl;
 
-  if (APP_ROLE === "workspace" && pathname === "/") {
-    return NextResponse.redirect(new URL("/chats", request.url));
-  }
+    if (APP_ROLE === "workspace" && pathname === "/") {
+      return NextResponse.redirect(new URL("/chats", request.url));
+    }
 
-  // Waitlist retired — send old links home.
-  if (pathname === "/waitlist" || pathname.startsWith("/waitlist/")) {
-    return NextResponse.redirect(new URL("/access", request.url));
-  }
+    // Waitlist retired — send old links home.
+    if (pathname === "/waitlist" || pathname.startsWith("/waitlist/")) {
+      return NextResponse.redirect(new URL("/access", request.url));
+    }
 
-  if (isPublicRoute(request)) {
+    if (isPublicRoute(request)) {
+      return NextResponse.next();
+    }
+
+    // Landing stays reachable; chat/API require Clerk.
+    if (pathname === "/") {
+      return NextResponse.next();
+    }
+
+    await auth.protect({
+      unauthenticatedUrl: new URL(
+        `/login?redirectTo=${encodeURIComponent(pathname)}`,
+        request.url,
+      ).toString(),
+    });
+
     return NextResponse.next();
-  }
-
-  // Landing stays reachable; chat/API require Clerk.
-  if (pathname === "/") {
-    return NextResponse.next();
-  }
-
-  await auth.protect({
-    unauthenticatedUrl: new URL(
-      `/login?redirectTo=${encodeURIComponent(pathname)}`,
-      request.url,
-    ).toString(),
-  });
-
-  return NextResponse.next();
-});
+  },
+  // Required for sitecoder.useprivy.app — Clerk only auto-proxies *.vercel.app hosts.
+  { frontendApiProxy: { enabled: true } },
+);
 
 export const config = {
   matcher: [
